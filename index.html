@@ -1,2036 +1,1525 @@
 <!DOCTYPE html>
-<html lang="vi" class="h-full">
+<html lang="vi" class="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TaskFlow Việt - Quản Lý Công Việc & Đồng Bộ Lịch (.ics)</title>
-
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              50: '#f0f7ff',
-              100: '#e0effe',
-              500: '#3b82f6',
-              600: '#2563eb',
-              700: '#1d4ed8',
-            }
-          }
-        }
-      }
-    }
-  </script>
-
-  <!-- Google Fonts: Inter -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-  <!-- Font Awesome Icons CDN -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-  <!-- React & Babel CDNs -->
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <style>
-    body {
-      font-family: 'Inter', sans-serif;
-    }
-    /* Custom Scrollbars */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: rgba(156, 163, 175, 0.4);
-      border-radius: 9999px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: rgba(107, 114, 128, 0.6);
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: scale(0.96); }
-      to { opacity: 1; transform: scale(1); }
-    }
-    .animate-fadeIn {
-      animation: fadeIn 0.2s ease-out forwards;
-    }
-  </style>
-</head>
-<body class="h-full bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-200">
-  <div id="root" class="h-full"></div>
-
-  <script type="text/babel">
-    const { useState, useEffect, useMemo, useRef } = React;
-
-    // --- Audio Sound Synthesizer for Pomodoro Beep ---
-    const playNotificationSound = () => {
-      try {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (!AudioCtx) return;
-        const ctx = new AudioCtx();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3); // A5
-        gain.gain.setValueAtTime(0.2, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.6);
-      } catch (e) {
-        console.log('Audio notification fallback');
-      }
-    };
-
-    // --- Helpers & Initial Data ---
-    const CATEGORIES = {
-      work: { name: 'Công việc', icon: 'fa-briefcase', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200 dark:border-blue-800' },
-      personal: { name: 'Cá nhân', icon: 'fa-user', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border-purple-200 dark:border-purple-800' },
-      study: { name: 'Học tập', icon: 'fa-graduation-cap', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' },
-      other: { name: 'Khác', icon: 'fa-layer-group', color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700' }
-    };
-
-    const PRIORITIES = {
-      high: { name: 'Cao', color: 'bg-red-500 text-white', badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
-      medium: { name: 'Trung bình', color: 'bg-amber-500 text-white', badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-      low: { name: 'Thấp', color: 'bg-slate-400 text-white', badge: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' }
-    };
-
-    const STATUSES = {
-      todo: { name: 'Cần làm', color: 'border-slate-300 dark:border-slate-700' },
-      in_progress: { name: 'Đang làm', color: 'border-blue-500 text-blue-600' },
-      completed: { name: 'Hoàn thành', color: 'border-emerald-500 text-emerald-600' }
-    };
-
-    const REMINDER_OPTIONS = [
-      { label: 'Đúng giờ', value: 0 },
-      { label: 'Trước 15 phút', value: 15 },
-      { label: 'Trước 30 phút', value: 30 },
-      { label: 'Trước 1 tiếng', value: 60 },
-      { label: 'Trước 1 ngày', value: 1440 }
-    ];
-
-    // Helper to format date strings for display
-    const formatDate = (dateStr) => {
-      if (!dateStr) return '';
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return dateStr;
-      
-      const hasTime = dateStr.includes('T');
-      if (hasTime) {
-        return d.toLocaleString('vi-VN', { 
-          day: '2-digit', 
-          month: '2-digit', 
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-      }
-      return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    };
-
-    const getTodayISO = () => {
-      const now = new Date();
-      return now.toISOString().split('T')[0];
-    };
-
-    const getTomorrowISO = () => {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      return tomorrow.toISOString().split('T')[0];
-    };
-
-    const getYesterdayISO = () => {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      return yesterday.toISOString().split('T')[0];
-    };
-
-    // --- ICS FILE GENERATOR (RFC 5545 COMPLIANT) ---
-    const formatICSTime = (dateObj) => {
-      const pad = (n) => String(n).padStart(2, '0');
-      const year = dateObj.getUTCFullYear();
-      const month = pad(dateObj.getUTCMonth() + 1);
-      const day = pad(dateObj.getUTCDate());
-      const hours = pad(dateObj.getUTCHours());
-      const minutes = pad(dateObj.getUTCMinutes());
-      const seconds = pad(dateObj.getUTCSeconds());
-      return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
-    };
-
-    const escapeICS = (str) => {
-      if (!str) return '';
-      return str
-        .replace(/\\/g, '\\\\')
-        .replace(/;/g, '\\;')
-        .replace(/,/g, '\\,')
-        .replace(/\n/g, '\\n');
-    };
-
-    const buildSingleEventICS = (task, reminderMinutes = 30) => {
-      let startDate;
-      if (task.deadline) {
-        if (task.deadline.includes('T')) {
-          startDate = new Date(task.deadline);
-        } else {
-          startDate = new Date(`${task.deadline}T09:00:00`);
-        }
-      } else {
-        startDate = new Date();
-        startDate.setHours(9, 0, 0, 0);
-      }
-      
-      if (isNaN(startDate.getTime())) {
-        startDate = new Date();
-      }
-
-      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hour duration
-      const now = new Date();
-
-      let descText = `Mức độ ưu tiên: ${PRIORITIES[task.priority]?.name || 'Trung bình'}\n`;
-      descText += `Danh mục: ${CATEGORIES[task.category]?.name || 'Khác'}\n`;
-      if (task.description) {
-        descText += `\nMô tả: ${task.description}\n`;
-      }
-      if (task.subtasks && task.subtasks.length > 0) {
-        descText += `\nViệc nhỏ cần làm:\n`;
-        task.subtasks.forEach(s => {
-          descText += `- [${s.completed ? 'x' : ' '}] ${s.title}\n`;
-        });
-      }
-      descText += `\n--- Quản lý từ TaskFlow Việt ---`;
-
-      const lines = [
-        'BEGIN:VCALENDAR',
-        'VERSION:2.0',
-        'PRODID:-//TaskFlow Viet//Personal Task Manager//VI',
-        'CALSCALE:GREGORIAN',
-        'METHOD:PUBLISH',
-        'BEGIN:VEVENT',
-        `UID:taskflow-${task.id}-${Date.now()}@taskflow.local`,
-        `DTSTAMP:${formatICSTime(now)}`,
-        `DTSTART:${formatICSTime(startDate)}`,
-        `DTEND:${formatICSTime(endDate)}`,
-        `SUMMARY:${escapeICS(task.title)}`,
-        `DESCRIPTION:${escapeICS(descText)}`,
-        'STATUS:CONFIRMED',
-      ];
-
-      // Insert Phone Alarm Trigger (VALARM)
-      if (reminderMinutes >= 0) {
-        lines.push(
-          'BEGIN:VALARM',
-          'ACTION:DISPLAY',
-          `DESCRIPTION:Nhắc nhở: ${escapeICS(task.title)}`,
-          `TRIGGER:-PT${reminderMinutes}M`,
-          'END:VALARM'
-        );
-      }
-
-      lines.push('END:VEVENT', 'END:VCALENDAR');
-      return lines.join('\r\n');
-    };
-
-    const buildBatchEventsICS = (taskList, reminderMinutes = 30) => {
-      const now = new Date();
-      const lines = [
-        'BEGIN:VCALENDAR',
-        'VERSION:2.0',
-        'PRODID:-//TaskFlow Viet//Personal Task Manager//VI',
-        'CALSCALE:GREGORIAN',
-        'METHOD:PUBLISH'
-      ];
-
-      taskList.forEach(task => {
-        let startDate;
-        if (task.deadline) {
-          if (task.deadline.includes('T')) {
-            startDate = new Date(task.deadline);
-          } else {
-            startDate = new Date(`${task.deadline}T09:00:00`);
-          }
-        } else {
-          startDate = new Date();
-          startDate.setHours(9, 0, 0, 0);
-        }
-        
-        if (isNaN(startDate.getTime())) startDate = new Date();
-        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
-
-        let descText = `Ưu tiên: ${PRIORITIES[task.priority]?.name || 'Trung bình'}\n`;
-        if (task.description) descText += `\nMô tả: ${task.description}\n`;
-        if (task.subtasks && task.subtasks.length > 0) {
-          descText += `\nViệc nhỏ:\n` + task.subtasks.map(s => `- [${s.completed ? 'x' : ' '}] ${s.title}`).join('\n') + '\n';
-        }
-        descText += `\n--- TaskFlow Việt ---`;
-
-        lines.push(
-          'BEGIN:VEVENT',
-          `UID:taskflow-${task.id}-${Date.now()}@taskflow.local`,
-          `DTSTAMP:${formatICSTime(now)}`,
-          `DTSTART:${formatICSTime(startDate)}`,
-          `DTEND:${formatICSTime(endDate)}`,
-          `SUMMARY:${escapeICS(task.title)}`,
-          `DESCRIPTION:${escapeICS(descText)}`,
-          'STATUS:CONFIRMED'
-        );
-
-        if (reminderMinutes >= 0) {
-          lines.push(
-            'BEGIN:VALARM',
-            'ACTION:DISPLAY',
-            `DESCRIPTION:Nhắc nhở: ${escapeICS(task.title)}`,
-            `TRIGGER:-PT${reminderMinutes}M`,
-            'END:VALARM'
-          );
-        }
-
-        lines.push('END:VEVENT');
-      });
-
-      lines.push('END:VCALENDAR');
-      return lines.join('\r\n');
-    };
-
-    const triggerICSDownload = (filename, content) => {
-      const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.setAttribute('download', filename);
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    };
-
-    // Initial Sample Tasks
-    const INITIAL_TASKS = [
-      {
-        id: '1',
-        title: 'Hoàn thành báo cáo tổng kết quý 4',
-        description: 'Tổng hợp số liệu kinh doanh, đánh giá KPI phòng ban và chuẩn bị bài thuyết trình slide.',
-        deadline: `${getTodayISO()}T16:30`,
-        reminderOffset: 30,
-        priority: 'high',
-        category: 'work',
-        status: 'in_progress',
-        createdAt: new Date().toISOString(),
-        subtasks: [
-          { id: '101', title: 'Thu thập báo cáo từ đội Sales', completed: true },
-          { id: '102', title: 'Vẽ biểu đồ tăng trưởng', completed: false }
-        ]
-      },
-      {
-        id: '2',
-        title: 'Học 30 từ vựng Tiếng Anh Chuyên Ngành',
-        description: 'Ôn tập chủ đề Technology & Business Management trên ứng dụng Anki.',
-        deadline: `${getTomorrowISO()}T20:00`,
-        reminderOffset: 15,
-        priority: 'medium',
-        category: 'study',
-        status: 'todo',
-        createdAt: new Date().toISOString(),
-        subtasks: [
-          { id: '201', title: 'Ôn 15 từ cũ', completed: false },
-          { id: '202', title: 'Học 15 từ mới', completed: false }
-        ]
-      },
-      {
-        id: '3',
-        title: 'Tập thể dục & Chạy bộ 5km',
-        description: 'Duy trì thói quen sức khỏe tại công viên gần nhà.',
-        deadline: `${getTodayISO()}T17:30`,
-        reminderOffset: 15,
-        priority: 'low',
-        category: 'personal',
-        status: 'completed',
-        createdAt: new Date().toISOString(),
-        subtasks: []
-      },
-      {
-        id: '4',
-        title: 'Đặt lịch bảo dưỡng xe máy định kỳ',
-        description: 'Thay nhớt xe và kiểm tra phanh trước chuyến đi công tác xa.',
-        deadline: `${getYesterdayISO()}T09:00`,
-        reminderOffset: 60,
-        priority: 'high',
-        category: 'other',
-        status: 'todo',
-        createdAt: new Date().toISOString(),
-        subtasks: []
-      },
-      {
-        id: '5',
-        title: 'Thiết kế giao diện Landing Page sản phẩm mới',
-        description: 'Nghiên cứu UX/UI đối thủ, thiết kế wireframe trên Figma và xin phản hồi từ Product Manager.',
-        deadline: `${getTomorrowISO()}T14:00`,
-        reminderOffset: 30,
-        priority: 'medium',
-        category: 'work',
-        status: 'in_progress',
-        createdAt: new Date().toISOString(),
-        subtasks: []
-      }
-    ];
-
-    // --- MAIN APP COMPONENT ---
-    function App() {
-      // States
-      const [tasks, setTasks] = useState(() => {
-        const saved = localStorage.getItem('viet_task_manager_tasks_v2');
-        return saved ? JSON.parse(saved) : INITIAL_TASKS;
-      });
-
-      const [darkMode, setDarkMode] = useState(() => {
-        const saved = localStorage.getItem('viet_task_manager_theme');
-        return saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-      });
-
-      const [activeView, setActiveView] = useState('dashboard'); // 'dashboard', 'list', 'kanban', 'pomodoro'
-      const [searchQuery, setSearchQuery] = useState('');
-      const [filterCategory, setFilterCategory] = useState('all');
-      const [filterPriority, setFilterPriority] = useState('all');
-      const [filterTime, setFilterTime] = useState('all'); // 'all', 'today', 'upcoming', 'overdue'
-
-      // Modal & Form state
-      const [isModalOpen, setIsModalOpen] = useState(false);
-      const [editingTask, setEditingTask] = useState(null);
-      const [deleteModalId, setDeleteModalId] = useState(null);
-      const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-      const [icsModalTask, setIcsModalTask] = useState(null); // Single task ICS reminder config modal
-
-      // Toast Notification
-      const [toast, setToast] = useState(null);
-
-      const showToast = (message, type = 'info', duration = 4000) => {
-        setToast({ message, type });
-        setTimeout(() => setToast(null), duration);
-      };
-
-      // Sync tasks to LocalStorage
-      useEffect(() => {
-        localStorage.setItem('viet_task_manager_tasks_v2', JSON.stringify(tasks));
-      }, [tasks]);
-
-      // Sync Theme to HTML class
-      useEffect(() => {
-        if (darkMode) {
-          document.documentElement.classList.add('dark');
-          localStorage.setItem('viet_task_manager_theme', 'dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-          localStorage.setItem('viet_task_manager_theme', 'light');
-        }
-      }, [darkMode]);
-
-      // Task Actions
-      const handleSaveTask = (taskData) => {
-        if (editingTask) {
-          setTasks(prev => prev.map(t => t.id === editingTask.id ? { ...t, ...taskData } : t));
-          showToast('Đã cập nhật công việc thành công!', 'success');
-        } else {
-          const newTask = {
-            ...taskData,
-            id: Date.now().toString(),
-            createdAt: new Date().toISOString(),
-            status: taskData.status || 'todo',
-            subtasks: taskData.subtasks || []
-          };
-          setTasks(prev => [newTask, ...prev]);
-          showToast('Đã tạo công việc mới!', 'success');
-        }
-        setIsModalOpen(false);
-        setEditingTask(null);
-      };
-
-      const handleToggleTaskStatus = (id) => {
-        setTasks(prev => prev.map(t => {
-          if (t.id === id) {
-            const nextStatus = t.status === 'completed' ? 'todo' : 'completed';
-            return { ...t, status: nextStatus };
-          }
-          return t;
-        }));
-      };
-
-      const handleUpdateTaskStatus = (id, newStatus) => {
-        setTasks(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
-        showToast(`Đã chuyển trạng thái sang "${STATUSES[newStatus].name}"`, 'info');
-      };
-
-      const handleDeleteTask = (id) => {
-        setTasks(prev => prev.filter(t => t.id !== id));
-        setDeleteModalId(null);
-        showToast('Đã xóa công việc.', 'warning');
-      };
-
-      const handleToggleSubtask = (taskId, subtaskId) => {
-        setTasks(prev => prev.map(t => {
-          if (t.id === taskId) {
-            const updatedSubtasks = (t.subtasks || []).map(s => 
-              s.id === subtaskId ? { ...s, completed: !s.completed } : s
-            );
-            return { ...t, subtasks: updatedSubtasks };
-          }
-          return t;
-        }));
-      };
-
-      // --- EXPORT TO ICS CALENDAR FUNCTIONS ---
-      const handleExportSingleICS = (task, reminderMinutes = 30) => {
-        const icsData = buildSingleEventICS(task, reminderMinutes);
-        const cleanTitle = (task.title || 'cong_viec').replace(/[^a-zA-Z0-9_ -]/g, '').replace(/\s+/g, '_');
-        triggerICSDownload(`TaskFlow_${cleanTitle}.ics`, icsData);
-        showToast('Đã tải tệp .ics! Hãy chạm vào tệp vừa tải để lưu vào Lịch điện thoại (iPhone/Android).', 'success', 6000);
-      };
-
-      const handleExportAllIncompleteICS = () => {
-        const incompleteTasks = tasks.filter(t => t.status !== 'completed');
-        if (incompleteTasks.length === 0) {
-          showToast('Không có công việc chưa hoàn thành nào để xuất lịch!', 'warning');
-          return;
-        }
-        const batchICS = buildBatchEventsICS(incompleteTasks, 30);
-        triggerICSDownload(`TaskFlow_TatCaCongViec_${getTodayISO()}.ics`, batchICS);
-        showToast(`Đã xuất ${incompleteTasks.length} công việc sang tệp .ics! Mở tệp để đồng bộ điện thoại.`, 'success', 6000);
-      };
-
-      // Reset Data to sample
-      const handleResetData = () => {
-        setTasks(INITIAL_TASKS);
-        showToast('Đã khôi phục dữ liệu mẫu ban đầu!', 'info');
-      };
-
-      // Export JSON
-      const handleExportJSON = () => {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(tasks, null, 2));
-        const downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", `taskflow_backup_${getTodayISO()}.json`);
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-        showToast('Đã tải xuống tệp dữ liệu dự phòng!', 'success');
-      };
-
-      // Import JSON
-      const handleImportJSON = (e) => {
-        const fileReader = new FileReader();
-        if (e.target.files && e.target.files[0]) {
-          fileReader.readAsText(e.target.files[0], "UTF-8");
-          fileReader.onload = (event) => {
-            try {
-              const parsed = JSON.parse(event.target.result);
-              if (Array.isArray(parsed)) {
-                setTasks(parsed);
-                showToast('Đã nhập dữ liệu công việc thành công!', 'success');
-              } else {
-                showToast('Định dạng tệp không hợp lệ!', 'error');
-              }
-            } catch (err) {
-              showToast('Lỗi khi đọc tệp dữ liệu!', 'error');
-            }
-          };
-        }
-      };
-
-      // Filtered Tasks logic
-      const filteredTasks = useMemo(() => {
-        const todayStr = getTodayISO();
-
-        return tasks.filter(task => {
-          // Keyword search
-          if (searchQuery.trim() !== '') {
-            const query = searchQuery.toLowerCase();
-            const matchTitle = task.title.toLowerCase().includes(query);
-            const matchDesc = (task.description || '').toLowerCase().includes(query);
-            if (!matchTitle && !matchDesc) return false;
-          }
-
-          // Category filter
-          if (filterCategory !== 'all' && task.category !== filterCategory) return false;
-
-          // Priority filter
-          if (filterPriority !== 'all' && task.priority !== filterPriority) return false;
-
-          // Time filter
-          const taskDateOnly = task.deadline ? task.deadline.split('T')[0] : '';
-
-          if (filterTime === 'today') {
-            if (taskDateOnly !== todayStr) return false;
-          } else if (filterTime === 'upcoming') {
-            if (!taskDateOnly || taskDateOnly <= todayStr) return false;
-          } else if (filterTime === 'overdue') {
-            if (!taskDateOnly || taskDateOnly >= todayStr || task.status === 'completed') return false;
-          }
-
-          return true;
-        });
-      }, [tasks, searchQuery, filterCategory, filterPriority, filterTime]);
-
-      // Computed Stats for Dashboard
-      const stats = useMemo(() => {
-        const total = tasks.length;
-        const completed = tasks.filter(t => t.status === 'completed').length;
-        const inProgress = tasks.filter(t => t.status === 'in_progress').length;
-        const todo = tasks.filter(t => t.status === 'todo').length;
-        const todayStr = getTodayISO();
-        
-        const overdue = tasks.filter(t => {
-          const taskDateOnly = t.deadline ? t.deadline.split('T')[0] : '';
-          return taskDateOnly && taskDateOnly < todayStr && t.status !== 'completed';
-        }).length;
-
-        const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-        return { total, completed, inProgress, todo, overdue, percent };
-      }, [tasks]);
-
-      return (
-        <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-900">
-          
-          {/* TOAST NOTIFICATION */}
-          {toast && (
-            <div className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl text-white font-medium text-sm transition-all duration-300 transform translate-y-0 max-w-md ${
-              toast.type === 'success' ? 'bg-emerald-600' :
-              toast.type === 'warning' ? 'bg-amber-600' :
-              toast.type === 'error' ? 'bg-red-600' : 'bg-blue-600'
-            }`}>
-              <i className={`fas ${
-                toast.type === 'success' ? 'fa-circle-check' :
-                toast.type === 'warning' ? 'fa-triangle-exclamation' :
-                toast.type === 'error' ? 'fa-circle-xmark' : 'fa-circle-info'
-              } text-base`}></i>
-              <span className="leading-snug">{toast.message}</span>
-            </div>
-          )}
-
-          {/* BACKDROP FOR MOBILE SIDEBAR */}
-          {isMobileSidebarOpen && (
-            <div 
-              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 lg:hidden"
-              onClick={() => setIsMobileSidebarOpen(false)}
-            ></div>
-          )}
-
-          {/* SIDEBAR */}
-          <aside className={`fixed lg:static inset-y-0 left-0 z-40 w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700/60 flex flex-col justify-between transition-transform duration-300 ${
-            isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-          }`}>
-            <div>
-              {/* Logo Header */}
-              <div className="p-5 flex items-center justify-between border-b border-slate-100 dark:border-slate-700/50">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-                    <i className="fas fa-calendar-check text-lg"></i>
-                  </div>
-                  <div>
-                    <h1 className="font-bold text-slate-800 dark:text-white leading-none text-lg">TaskFlow</h1>
-                    <span className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold">Đồng bộ Lịch điện thoại</span>
-                  </div>
-                </div>
-                <button 
-                  className="lg:hidden text-slate-400 hover:text-slate-600"
-                  onClick={() => setIsMobileSidebarOpen(false)}
-                >
-                  <i className="fas fa-xmark text-lg"></i>
-                </button>
-              </div>
-
-              {/* Navigation Links */}
-              <div className="p-4 space-y-1">
-                <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Điều hướng</p>
-                <NavItem 
-                  icon="fa-chart-pie" 
-                  label="Tổng quan" 
-                  active={activeView === 'dashboard'} 
-                  onClick={() => { setActiveView('dashboard'); setIsMobileSidebarOpen(false); }} 
-                />
-                <NavItem 
-                  icon="fa-list-check" 
-                  label="Danh sách công việc" 
-                  active={activeView === 'list'} 
-                  onClick={() => { setActiveView('list'); setIsMobileSidebarOpen(false); }} 
-                  badge={stats.todo + stats.inProgress}
-                />
-                <NavItem 
-                  icon="fa-border-all" 
-                  label="Bảng Kanban" 
-                  active={activeView === 'kanban'} 
-                  onClick={() => { setActiveView('kanban'); setIsMobileSidebarOpen(false); }} 
-                />
-                <NavItem 
-                  icon="fa-clock" 
-                  label="Đồng hồ Pomodoro" 
-                  active={activeView === 'pomodoro'} 
-                  onClick={() => { setActiveView('pomodoro'); setIsMobileSidebarOpen(false); }} 
-                />
-              </div>
-
-              {/* Batch ICS Export Action */}
-              <div className="px-4 py-2">
-                <button
-                  onClick={handleExportAllIncompleteICS}
-                  className="w-full py-2.5 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm"
-                  title="Xuất tất cả việc chưa xong ra tệp .ics để thêm vào Lịch điện thoại"
-                >
-                  <i className="fas fa-calendar-plus text-sm"></i>
-                  <span>Xuất tất cả việc (.ics)</span>
-                </button>
-              </div>
-
-              {/* Categories Quick Filter */}
-              <div className="p-4 border-t border-slate-100 dark:border-slate-700/50 space-y-1">
-                <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Danh mục</p>
-                <button
-                  onClick={() => setFilterCategory('all')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
-                    filterCategory === 'all' ? 'bg-slate-100 dark:bg-slate-700 text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/40'
-                  }`}
-                >
-                  <span className="flex items-center gap-2.5">
-                    <i className="fas fa-border-all text-xs opacity-70"></i> Tất cả danh mục
-                  </span>
-                  <span className="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">{tasks.length}</span>
-                </button>
-                {Object.entries(CATEGORIES).map(([key, cat]) => {
-                  const count = tasks.filter(t => t.category === key).length;
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => { setFilterCategory(key); if (activeView === 'dashboard') setActiveView('list'); }}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
-                        filterCategory === key ? 'bg-slate-100 dark:bg-slate-700 text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/40'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2.5">
-                        <i className={`fas ${cat.icon} text-xs opacity-70`}></i> {cat.name}
-                      </span>
-                      <span className="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">{count}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Sidebar Bottom Options */}
-            <div className="p-4 border-t border-slate-100 dark:border-slate-700/50 space-y-2">
-              <div className="flex items-center justify-between px-2 py-1">
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Giao diện</span>
-                <button
-                  onClick={() => setDarkMode(!darkMode)}
-                  className="w-12 h-6 rounded-full bg-slate-200 dark:bg-slate-700 p-1 flex items-center transition-colors relative"
-                  title="Chuyển đổi giao diện Sáng / Tối"
-                >
-                  <div className={`w-4 h-4 rounded-full bg-white dark:bg-amber-400 shadow-sm flex items-center justify-center transition-transform ${darkMode ? 'translate-x-6' : 'translate-x-0'}`}>
-                    <i className={`fas ${darkMode ? 'fa-moon text-slate-900 text-[10px]' : 'fa-sun text-amber-500 text-[10px]'}`}></i>
-                  </div>
-                </button>
-              </div>
-
-              <div className="pt-2 flex items-center gap-2">
-                <button
-                  onClick={handleExportJSON}
-                  className="flex-1 px-2 py-1.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs rounded-lg text-slate-600 dark:text-slate-300 font-medium transition-colors flex items-center justify-center gap-1.5"
-                  title="Xuất tệp JSON dự phòng"
-                >
-                  <i className="fas fa-download"></i> Xuất JSON
-                </button>
-                <label className="flex-1 px-2 py-1.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs rounded-lg text-slate-600 dark:text-slate-300 font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
-                  <i className="fas fa-upload"></i> Nhập JSON
-                  <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" />
-                </label>
-              </div>
-
-              <button
-                onClick={handleResetData}
-                className="w-full text-center text-xs text-slate-400 hover:text-red-500 py-1 transition-colors"
-              >
-                <i className="fas fa-rotate-left mr-1"></i> Khôi phục dữ liệu mẫu
-              </button>
-            </div>
-          </aside>
-
-          {/* MAIN CONTENT CONTAINER */}
-          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-            
-            {/* TOP HEADER BAR */}
-            <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700/60 px-4 lg:px-8 py-3.5 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setIsMobileSidebarOpen(true)}
-                  className="lg:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
-                >
-                  <i className="fas fa-bars text-lg"></i>
-                </button>
-                
-                {/* Search Bar */}
-                <div className="relative w-48 sm:w-72 md:w-96">
-                  <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-                  <input
-                    type="text"
-                    placeholder="Tìm kiếm công việc..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 bg-slate-100 dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-blue-500 transition-all"
-                  />
-                  {searchQuery && (
-                    <button 
-                      onClick={() => setSearchQuery('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
-                    >
-                      <i className="fas fa-xmark"></i>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Header Right Actions */}
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleExportAllIncompleteICS}
-                  className="hidden md:flex bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl font-medium text-xs shadow-md shadow-emerald-500/20 items-center gap-2 transition-all hover:scale-105 active:scale-95"
-                  title="Xuất file .ics tất cả việc chưa xong vào Lịch điện thoại"
-                >
-                  <i className="fas fa-calendar-plus text-sm"></i>
-                  <span>Lưu Lịch ĐT (.ics)</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setEditingTask(null);
-                    setIsModalOpen(true);
-                  }}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-medium text-sm shadow-md shadow-blue-500/20 flex items-center gap-2 transition-all hover:scale-105 active:scale-95"
-                >
-                  <i className="fas fa-plus text-xs"></i>
-                  <span className="hidden sm:inline">Công việc mới</span>
-                </button>
-              </div>
-            </header>
-
-            {/* MAIN VIEW CONTENT AREA */}
-            <main className="flex-1 overflow-y-auto p-4 lg:p-8">
-              <div className="max-w-7xl mx-auto space-y-6">
-
-                {/* VIEW 1: DASHBOARD */}
-                {activeView === 'dashboard' && (
-                  <DashboardView 
-                    stats={stats}
-                    tasks={tasks}
-                    onOpenNewTask={() => { setEditingTask(null); setIsModalOpen(true); }}
-                    onSelectCategory={(cat) => { setFilterCategory(cat); setActiveView('list'); }}
-                    onToggleTask={handleToggleTaskStatus}
-                    onEditTask={(task) => { setEditingTask(task); setIsModalOpen(true); }}
-                    onDeleteTask={(id) => setDeleteModalId(id)}
-                    onOpenICSModal={(task) => setIcsModalTask(task)}
-                    setActiveView={setActiveView}
-                  />
-                )}
-
-                {/* VIEW 2: LIST VIEW */}
-                {activeView === 'list' && (
-                  <ListView 
-                    tasks={filteredTasks}
-                    filterCategory={filterCategory}
-                    setFilterCategory={setFilterCategory}
-                    filterPriority={filterPriority}
-                    setFilterPriority={setFilterPriority}
-                    filterTime={filterTime}
-                    setFilterTime={setFilterTime}
-                    onToggleTask={handleToggleTaskStatus}
-                    onEditTask={(task) => { setEditingTask(task); setIsModalOpen(true); }}
-                    onDeleteTask={(id) => setDeleteModalId(id)}
-                    onToggleSubtask={handleToggleSubtask}
-                    onOpenICSModal={(task) => setIcsModalTask(task)}
-                  />
-                )}
-
-                {/* VIEW 3: KANBAN VIEW */}
-                {activeView === 'kanban' && (
-                  <KanbanView 
-                    tasks={filteredTasks}
-                    onUpdateStatus={handleUpdateTaskStatus}
-                    onEditTask={(task) => { setEditingTask(task); setIsModalOpen(true); }}
-                    onDeleteTask={(id) => setDeleteModalId(id)}
-                    onOpenICSModal={(task) => setIcsModalTask(task)}
-                  />
-                )}
-
-                {/* VIEW 4: POMODORO TIMER */}
-                {activeView === 'pomodoro' && (
-                  <PomodoroView tasks={tasks} />
-                )}
-
-              </div>
-            </main>
-          </div>
-
-          {/* TASK CREATE / EDIT MODAL */}
-          {isModalOpen && (
-            <TaskFormModal 
-              initialData={editingTask}
-              onClose={() => { setIsModalOpen(false); setEditingTask(null); }}
-              onSave={handleSaveTask}
-              onExportICS={handleExportSingleICS}
-            />
-          )}
-
-          {/* SINGLE TASK ICS REMINDER MODAL */}
-          {icsModalTask && (
-            <ICSReminderModal
-              task={icsModalTask}
-              onClose={() => setIcsModalTask(null)}
-              onConfirm={(reminderMins) => {
-                handleExportSingleICS(icsModalTask, reminderMins);
-                setIcsModalTask(null);
-              }}
-            />
-          )}
-
-          {/* DELETE CONFIRMATION MODAL */}
-          {deleteModalId && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-              <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-700">
-                <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 flex items-center justify-center text-xl mb-4 mx-auto">
-                  <i className="fas fa-trash-can"></i>
-                </div>
-                <h3 className="text-lg font-bold text-slate-800 dark:text-white text-center mb-2">Xác nhận xóa công việc?</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 text-center mb-6">
-                  Hành động này không thể hoàn tác. Công việc này sẽ bị xóa vĩnh viễn khỏi danh sách của bạn.
-                </p>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setDeleteModalId(null)}
-                    className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-medium text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-                  >
-                    Hủy bỏ
-                  </button>
-                  <button
-                    onClick={() => handleDeleteTask(deleteModalId)}
-                    className="flex-1 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium text-sm transition-colors shadow-md shadow-red-500/20"
-                  >
-                    Xóa ngay
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-        </div>
-      );
-    }
-
-    // --- SIDEBAR NAV ITEM COMPONENT ---
-    function NavItem({ icon, label, active, onClick, badge }) {
-      return (
-        <button
-          onClick={onClick}
-          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-medium text-sm transition-all ${
-            active 
-              ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' 
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/60'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <i className={`fas ${icon} text-base w-5 text-center`}></i>
-            <span>{label}</span>
-          </div>
-          {badge > 0 && (
-            <span className={`px-2 py-0.5 rounded-full text-xs ${
-              active ? 'bg-blue-700 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-            }`}>
-              {badge}
-            </span>
-          )}
-        </button>
-      );
-    }
-
-    // --- DASHBOARD VIEW COMPONENT ---
-    function DashboardView({ stats, tasks, onOpenNewTask, onSelectCategory, onToggleTask, onEditTask, onDeleteTask, onOpenICSModal, setActiveView }) {
-      const todayStr = getTodayISO();
-      
-      const todayTasks = useMemo(() => {
-        return tasks.filter(t => {
-          const taskDateOnly = t.deadline ? t.deadline.split('T')[0] : '';
-          return taskDateOnly === todayStr || (taskDateOnly && taskDateOnly < todayStr && t.status !== 'completed');
-        });
-      }, [tasks, todayStr]);
-
-      return (
-        <div className="space-y-6">
-          
-          {/* Welcome Banner */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 md:p-8 text-white shadow-xl">
-            <div className="relative z-10 max-w-2xl">
-              <span className="inline-block px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-semibold uppercase tracking-wider mb-3">
-                {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-              </span>
-              <h2 className="text-2xl md:text-3xl font-bold mb-2">Xin chào! Hôm nay bạn thế nào? 👋</h2>
-              <p className="text-blue-100 text-sm md:text-base mb-6">
-                Bạn đã hoàn thành <span className="font-bold underline">{stats.completed}</span> trong tổng số <span className="font-bold">{stats.total}</span> công việc. Bạn có thể xuất tệp <span className="font-bold underline">.ics</span> để điện thoại nhắc báo thức tự động!
-              </p>
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  onClick={onOpenNewTask}
-                  className="bg-white text-blue-600 hover:bg-blue-50 px-5 py-2.5 rounded-xl font-semibold text-sm shadow-lg transition-transform hover:scale-105 active:scale-95 flex items-center gap-2"
-                >
-                  <i className="fas fa-plus text-xs"></i> Thêm công việc mới
-                </button>
-              </div>
-            </div>
-            <i className="fas fa-calendar-check absolute -right-4 -bottom-6 text-9xl text-white/10 pointer-events-none transform -rotate-12"></i>
-          </div>
-
-          {/* STATS CARDS GRID */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard 
-              icon="fa-list-check" 
-              color="bg-blue-500" 
-              title="Tổng công việc" 
-              value={stats.total} 
-              subText="Tất cả các mục" 
-            />
-            <StatCard 
-              icon="fa-spinner" 
-              color="bg-amber-500" 
-              title="Đang thực hiện" 
-              value={stats.inProgress} 
-              subText="Cần xử lý tiếp" 
-            />
-            <StatCard 
-              icon="fa-circle-check" 
-              color="bg-emerald-500" 
-              title="Đã hoàn thành" 
-              value={stats.completed} 
-              subText={`${stats.percent}% tỷ lệ đạt`} 
-            />
-            <StatCard 
-              icon="fa-triangle-exclamation" 
-              color="bg-red-500" 
-              title="Quá hạn" 
-              value={stats.overdue} 
-              subText="Cần ưu tiên gấp" 
-              highlight={stats.overdue > 0}
-            />
-          </div>
-
-          {/* SECOND ROW: PROGRESS & CATEGORY BREAKDOWN */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* Progress Card */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700/60 shadow-sm flex flex-col justify-between">
-              <h3 className="font-bold text-slate-800 dark:text-white text-base mb-4 flex items-center justify-between">
-                <span>Tiến độ hoàn thành</span>
-                <i className="fas fa-chart-line text-blue-500"></i>
-              </h3>
-
-              <div className="flex flex-col items-center justify-center my-4">
-                <div className="relative w-36 h-36 flex items-center justify-center">
-                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                    <path
-                      className="text-slate-100 dark:text-slate-700"
-                      strokeWidth="3.8"
-                      stroke="currentColor"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                    <path
-                      className="text-blue-600 transition-all duration-1000 ease-out"
-                      strokeDasharray={`${stats.percent}, 100`}
-                      strokeWidth="3.8"
-                      strokeLinecap="round"
-                      stroke="currentColor"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                  </svg>
-                  <div className="absolute text-center">
-                    <span className="text-3xl font-extrabold text-slate-800 dark:text-white">{stats.percent}%</span>
-                    <span className="block text-xs text-slate-400 font-medium">Hoàn tất</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-700/50">
-                <div className="flex justify-between text-xs text-slate-500">
-                  <span>Cần làm ({stats.todo})</span>
-                  <span>Đang làm ({stats.inProgress})</span>
-                  <span>Xong ({stats.completed})</span>
-                </div>
-                <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2 flex overflow-hidden">
-                  <div style={{ width: `${stats.total ? (stats.todo/stats.total)*100 : 0}%` }} className="bg-slate-400"></div>
-                  <div style={{ width: `${stats.total ? (stats.inProgress/stats.total)*100 : 0}%` }} className="bg-amber-500"></div>
-                  <div style={{ width: `${stats.total ? (stats.completed/stats.total)*100 : 0}%` }} className="bg-emerald-500"></div>
-                </div>
-              </div>
-            </div>
-
-            {/* Category Quick Selector */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700/60 shadow-sm lg:col-span-2">
-              <h3 className="font-bold text-slate-800 dark:text-white text-base mb-4 flex items-center justify-between">
-                <span>Phân loại theo danh mục</span>
-                <span className="text-xs text-slate-400 font-normal">Bấm để xem chi tiết</span>
-              </h3>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {Object.entries(CATEGORIES).map(([key, cat]) => {
-                  const categoryTasks = tasks.filter(t => t.category === key);
-                  const count = categoryTasks.length;
-                  const doneCount = categoryTasks.filter(t => t.status === 'completed').length;
-                  const catPercent = count > 0 ? Math.round((doneCount / count) * 100) : 0;
-
-                  return (
-                    <div 
-                      key={key}
-                      onClick={() => onSelectCategory(key)}
-                      className="p-4 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 hover:bg-slate-100 dark:hover:bg-slate-700/50 cursor-pointer transition-all hover:-translate-y-1"
-                    >
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-base mb-3 ${cat.color}`}>
-                        <i className={`fas ${cat.icon}`}></i>
-                      </div>
-                      <h4 className="font-semibold text-slate-800 dark:text-white text-sm mb-1">{cat.name}</h4>
-                      <p className="text-xs text-slate-500 mb-2">{count} công việc</p>
-                      <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
-                        <div style={{ width: `${catPercent}%` }} className="bg-blue-600 h-full rounded-full"></div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-          </div>
-
-          {/* TODAY / URGENT TASKS LIST */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700/60 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-bold text-slate-800 dark:text-white text-base">Công việc cần chú ý hôm nay</h3>
-                <p className="text-xs text-slate-400">Các nhiệm vụ có lịch hôm nay hoặc đã quá hạn</p>
-              </div>
-              <button 
-                onClick={() => setActiveView('list')}
-                className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
-              >
-                Xem tất cả ({tasks.length}) <i className="fas fa-arrow-right ml-1"></i>
-              </button>
-            </div>
-
-            {todayTasks.length === 0 ? (
-              <div className="py-8 text-center text-slate-400 dark:text-slate-500 space-y-2">
-                <i className="fas fa-mug-hot text-3xl text-emerald-500/60"></i>
-                <p className="text-sm font-medium">Không có công việc quá hạn hoặc cần hoàn thành hôm nay!</p>
-                <p className="text-xs">Bạn đã xử lý hết các mục quan trọng.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {todayTasks.map(task => (
-                  <TaskRowItem 
-                    key={task.id} 
-                    task={task} 
-                    onToggle={onToggleTask}
-                    onEdit={onEditTask}
-                    onDelete={onDeleteTask}
-                    onOpenICSModal={onOpenICSModal}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-        </div>
-      );
-    }
-
-    // --- STAT CARD COMPONENT ---
-    function StatCard({ icon, color, title, value, subText, highlight }) {
-      return (
-        <div className={`bg-white dark:bg-slate-800 rounded-2xl p-5 border shadow-sm transition-all ${
-          highlight ? 'border-red-300 dark:border-red-900/60 bg-red-50/30 dark:bg-red-950/10' : 'border-slate-100 dark:border-slate-700/60'
-        }`}>
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{title}</span>
-            <div className={`w-9 h-9 rounded-xl ${color} text-white flex items-center justify-center text-sm shadow-md`}>
-              <i className={`fas ${icon}`}></i>
-            </div>
-          </div>
-          <div className="text-2xl md:text-3xl font-extrabold text-slate-800 dark:text-white mb-1">{value}</div>
-          <div className="text-xs text-slate-500 dark:text-slate-400">{subText}</div>
-        </div>
-      );
-    }
-
-    // --- LIST VIEW COMPONENT ---
-    function ListView({ tasks, filterCategory, setFilterCategory, filterPriority, setFilterPriority, filterTime, setFilterTime, onToggleTask, onEditTask, onDeleteTask, onToggleSubtask, onOpenICSModal }) {
-      return (
-        <div className="space-y-4">
-          
-          {/* FILTER TOOLBAR */}
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60 shadow-sm flex flex-wrap items-center justify-between gap-4">
-            
-            {/* Time Filter Pills */}
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl text-xs font-medium">
-              <button
-                onClick={() => setFilterTime('all')}
-                className={`px-3 py-1.5 rounded-lg transition-all ${filterTime === 'all' ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm font-semibold' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
-              >
-                Tất cả
-              </button>
-              <button
-                onClick={() => setFilterTime('today')}
-                className={`px-3 py-1.5 rounded-lg transition-all ${filterTime === 'today' ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm font-semibold' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
-              >
-                Hôm nay
-              </button>
-              <button
-                onClick={() => setFilterTime('upcoming')}
-                className={`px-3 py-1.5 rounded-lg transition-all ${filterTime === 'upcoming' ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm font-semibold' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
-              >
-                Sắp tới
-              </button>
-              <button
-                onClick={() => setFilterTime('overdue')}
-                className={`px-3 py-1.5 rounded-lg transition-all ${filterTime === 'overdue' ? 'bg-red-500 text-white shadow-sm font-semibold' : 'text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'}`}
-              >
-                Quá hạn
-              </button>
-            </div>
-
-            {/* Category & Priority Selectors */}
-            <div className="flex items-center gap-3">
-              <select
-                value={filterPriority}
-                onChange={(e) => setFilterPriority(e.target.value)}
-                className="bg-slate-100 dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:border-blue-500"
-              >
-                <option value="all">Mức độ ưu tiên: Tất cả</option>
-                <option value="high">Ưu tiên: Cao</option>
-                <option value="medium">Ưu tiên: Trung bình</option>
-                <option value="low">Ưu tiên: Thấp</option>
-              </select>
-
-              {(filterCategory !== 'all' || filterPriority !== 'all' || filterTime !== 'all') && (
-                <button
-                  onClick={() => { setFilterCategory('all'); setFilterPriority('all'); setFilterTime('all'); }}
-                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
-                >
-                  Xóa bộ lọc
-                </button>
-              )}
-            </div>
-
-          </div>
-
-          {/* TASK ITEMS LIST */}
-          {tasks.length === 0 ? (
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-12 text-center border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-3">
-              <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-400 flex items-center justify-center text-2xl mx-auto">
-                <i className="fas fa-clipboard-list"></i>
-              </div>
-              <h4 className="font-bold text-slate-700 dark:text-slate-200">Không tìm thấy công việc phù hợp</h4>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto">Thử thay đổi bộ lọc tìm kiếm hoặc tạo công việc mới để bắt đầu theo dõi.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {tasks.map(task => (
-                <TaskRowItem 
-                  key={task.id} 
-                  task={task} 
-                  onToggle={onToggleTask}
-                  onEdit={onEditTask}
-                  onDelete={onDeleteTask}
-                  onToggleSubtask={onToggleSubtask}
-                  onOpenICSModal={onOpenICSModal}
-                  showSubtasks={true}
-                />
-              ))}
-            </div>
-          )}
-
-        </div>
-      );
-    }
-
-    // --- TASK ROW ITEM COMPONENT ---
-    function TaskRowItem({ task, onToggle, onEdit, onDelete, onToggleSubtask, onOpenICSModal, showSubtasks }) {
-      const [expanded, setExpanded] = useState(false);
-      const isCompleted = task.status === 'completed';
-      const todayStr = getTodayISO();
-      
-      const taskDateOnly = task.deadline ? task.deadline.split('T')[0] : '';
-      const isOverdue = taskDateOnly && taskDateOnly < todayStr && !isCompleted;
-      const category = CATEGORIES[task.category] || CATEGORIES.other;
-      const priority = PRIORITIES[task.priority] || PRIORITIES.medium;
-
-      const completedSubtasks = (task.subtasks || []).filter(s => s.completed).length;
-      const totalSubtasks = (task.subtasks || []).length;
-
-      return (
-        <div className={`bg-white dark:bg-slate-800 rounded-2xl border transition-all duration-200 overflow-hidden shadow-sm hover:shadow-md ${
-          isOverdue 
-            ? 'border-red-300 dark:border-red-900/60 bg-red-50/20 dark:bg-red-950/10' 
-            : isCompleted 
-            ? 'border-slate-200 dark:border-slate-700/40 opacity-75' 
-            : 'border-slate-100 dark:border-slate-700/60'
-        }`}>
-          <div className="p-4 flex items-center justify-between gap-4">
-            
-            {/* Checkbox & Title Info */}
-            <div className="flex items-start gap-3.5 min-w-0 flex-1">
-              <button
-                onClick={() => onToggle(task.id)}
-                className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center transition-colors flex-shrink-0 ${
-                  isCompleted 
-                    ? 'bg-emerald-500 border-emerald-500 text-white' 
-                    : 'border-slate-300 dark:border-slate-600 hover:border-blue-500'
-                }`}
-              >
-                {isCompleted && <i className="fas fa-check text-xs"></i>}
-              </button>
-
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <h4 className={`font-semibold text-sm truncate ${
-                    isCompleted ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-white'
-                  }`}>
-                    {task.title}
-                  </h4>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                  {/* Category Pill */}
-                  <span className={`px-2 py-0.5 rounded-md font-medium text-[11px] border ${category.color}`}>
-                    <i className={`fas ${category.icon} mr-1`}></i>
-                    {category.name}
-                  </span>
-
-                  {/* Priority Badge */}
-                  <span className={`px-2 py-0.5 rounded-md font-medium text-[11px] ${priority.badge}`}>
-                    {priority.name}
-                  </span>
-
-                  {/* Deadline Indicator */}
-                  {task.deadline && (
-                    <span className={`flex items-center gap-1 font-medium ${
-                      isOverdue ? 'text-red-600 dark:text-red-400 font-bold' : 'text-slate-500'
-                    }`}>
-                      <i className={`fas ${isOverdue ? 'fa-clock text-red-500' : 'fa-calendar-alt'}`}></i>
-                      {formatDate(task.deadline)} {isOverdue && '(Quá hạn)'}
-                    </span>
-                  )}
-
-                  {/* Subtask Counter */}
-                  {totalSubtasks > 0 && (
-                    <span className="flex items-center gap-1 text-slate-400">
-                      <i className="fas fa-list-check text-xs"></i>
-                      {completedSubtasks}/{totalSubtasks}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-1">
-              {/* ICS Calendar Reminder Export Button */}
-              <button
-                onClick={() => onOpenICSModal(task)}
-                className="p-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
-                title="Tải tệp .ics để đặt báo thức Lịch điện thoại"
-              >
-                <i className="fas fa-calendar-plus text-sm"></i>
-                <span className="hidden sm:inline">Lưu Lịch</span>
-              </button>
-
-              {showSubtasks && (task.description || (task.subtasks && task.subtasks.length > 0)) && (
-                <button
-                  onClick={() => setExpanded(!expanded)}
-                  className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-xs"
-                  title="Xem chi tiết"
-                >
-                  <i className={`fas ${expanded ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
-                </button>
-              )}
-              <button
-                onClick={() => onEdit(task)}
-                className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-xs"
-                title="Chỉnh sửa"
-              >
-                <i className="fas fa-pen"></i>
-              </button>
-              <button
-                onClick={() => onDelete(task.id)}
-                className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-xs"
-                title="Xóa"
-              >
-                <i className="fas fa-trash-can"></i>
-              </button>
-            </div>
-          </div>
-
-          {/* EXPANDED DETAILS & SUBTASKS */}
-          {expanded && showSubtasks && (
-            <div className="px-4 pb-4 pt-2 bg-slate-50/50 dark:bg-slate-900/30 border-t border-slate-100 dark:border-slate-700/50 space-y-3">
-              {task.description && (
-                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed pl-8">
-                  {task.description}
-                </p>
-              )}
-
-              {task.subtasks && task.subtasks.length > 0 && (
-                <div className="pl-8 space-y-1.5">
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Danh sách việc nhỏ</p>
-                  {task.subtasks.map(sub => (
-                    <label key={sub.id} className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={sub.completed}
-                        onChange={() => onToggleSubtask(task.id, sub.id)}
-                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className={sub.completed ? 'line-through text-slate-400' : ''}>
-                        {sub.title}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    // --- KANBAN VIEW COMPONENT ---
-    function KanbanView({ tasks, onUpdateStatus, onEditTask, onDeleteTask, onOpenICSModal }) {
-      const columns = [
-        { key: 'todo', title: 'Cần làm', icon: 'fa-circle', color: 'text-slate-400' },
-        { key: 'in_progress', title: 'Đang làm', icon: 'fa-spinner text-amber-500', color: 'text-amber-500' },
-        { key: 'completed', title: 'Hoàn thành', icon: 'fa-circle-check text-emerald-500', color: 'text-emerald-500' }
-      ];
-
-      return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-          {columns.map(col => {
-            const columnTasks = tasks.filter(t => t.status === col.key);
-
-            return (
-              <div key={col.key} className="bg-slate-100/70 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-200/60 dark:border-slate-700/60 flex flex-col min-h-[500px]">
-                {/* Column Header */}
-                <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200 dark:border-slate-700">
-                  <div className="flex items-center gap-2">
-                    <i className={`fas ${col.icon} text-xs`}></i>
-                    <h3 className="font-bold text-slate-800 dark:text-white text-sm">{col.title}</h3>
-                  </div>
-                  <span className="text-xs bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-2.5 py-0.5 rounded-full font-semibold">
-                    {columnTasks.length}
-                  </span>
-                </div>
-
-                {/* Task Cards Stack */}
-                <div className="space-y-3 flex-1 overflow-y-auto">
-                  {columnTasks.length === 0 ? (
-                    <div className="py-8 text-center text-slate-400 text-xs font-medium border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
-                      Chưa có công việc
-                    </div>
-                  ) : (
-                    columnTasks.map(task => (
-                      <KanbanCard 
-                        key={task.id} 
-                        task={task} 
-                        onUpdateStatus={onUpdateStatus}
-                        onEdit={onEditTask}
-                        onDelete={onDeleteTask}
-                        onOpenICSModal={onOpenICSModal}
-                      />
-                    ))
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      );
-    }
-
-    // --- KANBAN CARD COMPONENT ---
-    function KanbanCard({ task, onUpdateStatus, onEdit, onDelete, onOpenICSModal }) {
-      const category = CATEGORIES[task.category] || CATEGORIES.other;
-      const priority = PRIORITIES[task.priority] || PRIORITIES.medium;
-      const todayStr = getTodayISO();
-      
-      const taskDateOnly = task.deadline ? task.deadline.split('T')[0] : '';
-      const isOverdue = taskDateOnly && taskDateOnly < todayStr && task.status !== 'completed';
-
-      return (
-        <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700/80 shadow-sm hover:shadow-md transition-all space-y-3">
-          
-          {/* Card Top Header */}
-          <div className="flex items-center justify-between">
-            <span className={`px-2 py-0.5 rounded-md font-medium text-[10px] border ${category.color}`}>
-              {category.name}
-            </span>
-            <span className={`px-2 py-0.5 rounded-md font-medium text-[10px] ${priority.badge}`}>
-              {priority.name}
-            </span>
-          </div>
-
-          {/* Title & Description */}
-          <div>
-            <h5 className="font-semibold text-slate-800 dark:text-white text-sm leading-snug mb-1">
-              {task.title}
-            </h5>
-            {task.description && (
-              <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
-                {task.description}
-              </p>
-            )}
-          </div>
-
-          {/* Deadline & Reminder Export Footer */}
-          <div className="flex items-center justify-between text-[11px]">
-            {task.deadline ? (
-              <div className={`font-medium flex items-center gap-1 ${
-                isOverdue ? 'text-red-500 font-bold' : 'text-slate-400'
-              }`}>
-                <i className="fas fa-clock"></i>
-                {formatDate(task.deadline)} {isOverdue && '(Quá hạn)'}
-              </div>
-            ) : <div></div>}
-
-            <button
-              onClick={() => onOpenICSModal(task)}
-              className="text-emerald-600 dark:text-emerald-400 hover:underline font-semibold flex items-center gap-1"
-              title="Xuất file .ics sang Lịch điện thoại"
-            >
-              <i className="fas fa-calendar-plus"></i> Lưu Lịch
-            </button>
-          </div>
-
-          {/* Quick Action Buttons to Move Card */}
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between">
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => onEdit(task)}
-                className="p-1.5 text-slate-400 hover:text-blue-500 text-xs rounded hover:bg-slate-100 dark:hover:bg-slate-700"
-                title="Chỉnh sửa"
-              >
-                <i className="fas fa-pen"></i>
-              </button>
-              <button
-                onClick={() => onDelete(task.id)}
-                className="p-1.5 text-slate-400 hover:text-red-500 text-xs rounded hover:bg-slate-100 dark:hover:bg-slate-700"
-                title="Xóa"
-              >
-                <i className="fas fa-trash-can"></i>
-              </button>
-            </div>
-
-            {/* Move status buttons */}
-            <div className="flex items-center gap-1 text-xs">
-              {task.status !== 'todo' && (
-                <button
-                  onClick={() => onUpdateStatus(task.id, task.status === 'completed' ? 'in_progress' : 'todo')}
-                  className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 transition-colors"
-                  title="Chuyển về trước"
-                >
-                  <i className="fas fa-arrow-left"></i>
-                </button>
-              )}
-              {task.status !== 'completed' && (
-                <button
-                  onClick={() => onUpdateStatus(task.id, task.status === 'todo' ? 'in_progress' : 'completed')}
-                  className="px-2 py-1 rounded bg-blue-50 dark:bg-blue-900/40 hover:bg-blue-100 text-blue-600 dark:text-blue-300 font-medium transition-colors"
-                  title="Chuyển sang bước tiếp"
-                >
-                  <i className="fas fa-arrow-right"></i>
-                </button>
-              )}
-            </div>
-          </div>
-
-        </div>
-      );
-    }
-
-    // --- POMODORO TIMER VIEW COMPONENT ---
-    function PomodoroView({ tasks }) {
-      const [mode, setMode] = useState('work'); // 'work' (25m), 'shortBreak' (5m), 'longBreak' (15m)
-      const [timeLeft, setTimeLeft] = useState(25 * 60);
-      const [isRunning, setIsRunning] = useState(false);
-      const [selectedTaskId, setSelectedTaskId] = useState('');
-      const [completedCycles, setCompletedCycles] = useState(0);
-
-      const timerRef = useRef(null);
-
-      const modeTimes = {
-        work: 25 * 60,
-        shortBreak: 5 * 60,
-        longBreak: 15 * 60
-      };
-
-      const handleSwitchMode = (newMode) => {
-        setMode(newMode);
-        setIsRunning(false);
-        setTimeLeft(modeTimes[newMode]);
-      };
-
-      useEffect(() => {
-        if (isRunning) {
-          timerRef.current = setInterval(() => {
-            setTimeLeft(prev => {
-              if (prev <= 1) {
-                clearInterval(timerRef.current);
-                setIsRunning(false);
-                playNotificationSound();
-                if (mode === 'work') {
-                  setCompletedCycles(c => c + 1);
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TaskFlow Việt - iOS 27 Liquid Glass Edition</title>
+    
+    <!-- PWA & Mobile Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#090d16">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        ios: {
+                            blue: '#007AFF',
+                            purple: '#AF52DE',
+                            pink: '#FF2D55',
+                            indigo: '#5856D6',
+                            teal: '#30B0C7',
+                            bgDark: '#0b0f19',
+                            cardDark: 'rgba(22, 28, 45, 0.65)',
+                            cardLight: 'rgba(255, 255, 255, 0.75)',
+                            glassBorder: 'rgba(255, 255, 255, 0.12)',
+                            glassBorderLight: 'rgba(0, 0, 0, 0.08)'
+                        }
+                    },
+                    boxShadow: {
+                        'liquid': '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+                        'glow-blue': '0 0 20px rgba(0, 122, 255, 0.35)',
+                        'glow-purple': '0 0 20px rgba(175, 82, 222, 0.35)',
+                        'pill': '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3)'
+                    }
                 }
-                return 0;
-              }
-              return prev - 1;
-            });
-          }, 1000);
-        } else {
-          clearInterval(timerRef.current);
+            }
+        }
+    </script>
+    
+    <!-- FontAwesome & Google Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK (ES Module / Compatibility) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    
+    <style>
+        * {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
         }
 
-        return () => clearInterval(timerRef.current);
-      }, [isRunning, mode]);
+        /* Safe Area padding for modern iPhone / Android notches */
+        .safe-top { padding-top: env(safe-area-inset-top, 16px); }
+        .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 24px); }
+        .safe-mb { margin-bottom: calc(75px + env(safe-area-inset-bottom, 16px)); }
 
-      const formatTimer = (seconds) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-      };
+        /* Liquid Glass Backdrop Blur */
+        .glass-panel {
+            background: rgba(18, 24, 38, 0.65);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
 
-      return (
-        <div className="max-w-xl mx-auto space-y-6">
-          
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700/60 shadow-xl text-center space-y-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full text-xs font-semibold">
-              <i className="fas fa-stopwatch"></i> Phương pháp Pomodoro
+        .light .glass-panel {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
+        /* Smooth tab slider animation */
+        .tab-slider {
+            transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        /* Hide Scrollbars */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Swipeable task card animation */
+        .task-card {
+            transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s ease;
+            touch-action: pan-y;
+        }
+
+        /* iOS Bottom Sheet */
+        .bottom-sheet {
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .bottom-sheet.closed {
+            transform: translateY(100%);
+        }
+
+        /* Ripple & Pulse Keyframes */
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.6; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+        }
+        .animate-glow { animation: pulseGlow 3s infinite ease-in-out; }
+    </style>
+</head>
+<body class="bg-[#090d16] text-slate-100 min-h-screen overflow-x-hidden selection:bg-indigo-500 selection:text-white dark:bg-[#090d16] dark:text-slate-100 light:bg-slate-50 light:text-slate-900 transition-colors duration-300">
+
+    <!-- Header / Status Glow Bar -->
+    <header class="sticky top-0 z-30 glass-panel border-b-0 border-white/10 px-4 pt-3 pb-3 safe-top flex items-center justify-between shadow-lg">
+        <div class="flex items-center gap-3">
+            <div class="relative">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center text-white shadow-glow-purple font-bold text-xl">
+                    <i class="fa-solid font-bold fa-bolt text-lg"></i>
+                </div>
+                <span id="cloud-status-dot" class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-[#090d16] shadow-sm" title="Trạng thái đồng bộ"></span>
             </div>
-
-            {/* Mode Selector Tabs */}
-            <div className="flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl text-xs font-semibold max-w-sm mx-auto">
-              <button
-                onClick={() => handleSwitchMode('work')}
-                className={`flex-1 py-2 rounded-xl transition-all ${mode === 'work' ? 'bg-red-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
-              >
-                Làm việc (25m)
-              </button>
-              <button
-                onClick={() => handleSwitchMode('shortBreak')}
-                className={`flex-1 py-2 rounded-xl transition-all ${mode === 'shortBreak' ? 'bg-emerald-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
-              >
-                Nghỉ ngắn (5m)
-              </button>
-              <button
-                onClick={() => handleSwitchMode('longBreak')}
-                className={`flex-1 py-2 rounded-xl transition-all ${mode === 'longBreak' ? 'bg-blue-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
-              >
-                Nghỉ dài (15m)
-              </button>
+            <div>
+                <h1 class="font-extrabold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-indigo-300 dark:from-white dark:to-indigo-300 light:from-slate-900 light:to-indigo-600">
+                    TaskFlow <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 font-semibold uppercase">iOS 27</span>
+                </h1>
+                <p id="current-date-subtitle" class="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500 font-medium">Đang tải ngày...</p>
             </div>
-
-            {/* Timer Display */}
-            <div className="py-6">
-              <div className="text-7xl md:text-8xl font-black text-slate-800 dark:text-white tracking-tight font-mono">
-                {formatTimer(timeLeft)}
-              </div>
-              <p className="text-xs text-slate-400 mt-2">
-                {mode === 'work' ? 'Tập trung cao độ không xao nhãng' : 'Thư giãn mắt và cơ thể'}
-              </p>
-            </div>
-
-            {/* Controls */}
-            <div className="flex items-center justify-center gap-4">
-              <button
-                onClick={() => setIsRunning(!isRunning)}
-                className={`w-36 py-3.5 rounded-2xl font-bold text-base text-white shadow-lg transition-transform hover:scale-105 active:scale-95 ${
-                  isRunning ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20' : 'bg-red-500 hover:bg-red-600 shadow-red-500/20'
-                }`}
-              >
-                <i className={`fas ${isRunning ? 'fa-pause' : 'fa-play'} mr-2`}></i>
-                {isRunning ? 'Tạm dừng' : 'Bắt đầu'}
-              </button>
-
-              <button
-                onClick={() => { setIsRunning(false); setTimeLeft(modeTimes[mode]); }}
-                className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all"
-                title="Đặt lại đồng hồ"
-              >
-                <i className="fas fa-rotate-right"></i>
-              </button>
-            </div>
-
-            {/* Assigned Task Picker */}
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-700/60 text-left">
-              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">
-                Gắn phiên tập trung này với công việc:
-              </label>
-              <select
-                value={selectedTaskId}
-                onChange={(e) => setSelectedTaskId(e.target.value)}
-                className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:border-red-500"
-              >
-                <option value="">-- Chọn công việc trong danh sách --</option>
-                {tasks.filter(t => t.status !== 'completed').map(t => (
-                  <option key={t.id} value={t.id}>{t.title}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Completed sessions counter */}
-            <div className="flex items-center justify-between text-xs text-slate-400 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl">
-              <span>Chu kỳ Pomodoro đã xong hôm nay:</span>
-              <span className="font-bold text-red-500">{completedCycles} phiên</span>
-            </div>
-
-          </div>
-
         </div>
-      );
-    }
 
-    // --- ICS REMINDER CONFIG MODAL ---
-    function ICSReminderModal({ task, onClose, onConfirm }) {
-      const [reminderMins, setReminderMins] = useState(task.reminderOffset !== undefined ? task.reminderOffset : 30);
+        <div class="flex items-center gap-2">
+            <!-- Search trigger -->
+            <button onclick="toggleQuickSearch()" class="w-9 h-9 rounded-full bg-slate-800/60 light:bg-slate-200/60 flex items-center justify-center text-slate-300 light:text-slate-700 hover:bg-indigo-600/30 transition">
+                <i class="fa-solid fa-magnifying-glass text-sm"></i>
+            </button>
+            <!-- Theme Toggle -->
+            <button onclick="toggleTheme()" class="w-9 h-9 rounded-full bg-slate-800/60 light:bg-slate-200/60 flex items-center justify-center text-amber-400 dark:text-amber-400 light:text-indigo-600 hover:scale-105 transition">
+                <i id="theme-icon" class="fa-solid fa-moon text-sm"></i>
+            </button>
+        </div>
+    </header>
 
-      return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-700 space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-lg font-bold">
-                  <i className="fas fa-calendar-plus"></i>
+    <!-- Global Quick Search Bar Overlay (Collapsible) -->
+    <div id="search-overlay" class="hidden sticky top-[62px] z-20 px-4 py-2 glass-panel border-b border-indigo-500/20 animate-fade-in">
+        <div class="relative flex items-center">
+            <i class="fa-solid fa-search absolute left-3 text-slate-400 text-sm"></i>
+            <input type="text" id="global-search-input" oninput="renderTasks()" placeholder="Tìm kiếm công việc, ghi chú..." class="w-full bg-slate-900/80 light:bg-slate-100 text-sm pl-9 pr-8 py-2 rounded-xl text-white light:text-slate-900 focus:outline-none border border-slate-700/50 focus:border-indigo-500">
+            <button onclick="toggleQuickSearch()" class="absolute right-3 text-slate-400 hover:text-white text-xs">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN TAB CONTAINER WITH TOUCH HORIZONTAL SWIPE SUPPORT -->
+    <main id="main-touch-container" class="relative w-full overflow-hidden safe-mb min-h-[calc(100vh-160px)]">
+        <div id="tab-wrapper" class="flex w-[400%] tab-slider min-h-[calc(100vh-160px)]">
+            
+            <!-- TAB 1: TỔNG QUAN (DASHBOARD) -->
+            <section class="w-1/4 px-4 py-4 space-y-4 overflow-y-auto max-h-[calc(100vh-160px)] no-scrollbar">
+                <!-- Welcome Banner -->
+                <div class="relative overflow-hidden rounded-3xl p-5 bg-gradient-to-br from-indigo-900/40 via-purple-900/30 to-slate-900/60 border border-white/10 shadow-2xl">
+                    <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl"></div>
+                    <div class="relative z-10 flex justify-between items-start">
+                        <div>
+                            <span class="inline-block px-2.5 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-xs font-semibold mb-2">
+                                <i class="fa-solid fa-sparkles mr-1"></i> Xin chào bạn!
+                            </span>
+                            <h2 class="text-xl font-bold text-white">Hôm nay của bạn thế nào?</h2>
+                            <p class="text-xs text-slate-300 mt-1">Hoàn thành các mục tiêu nhỏ mỗi ngày.</p>
+                        </div>
+                        <!-- Circular Progress Ring -->
+                        <div class="relative w-16 h-16 flex items-center justify-center">
+                            <svg class="w-16 h-16 -rotate-90">
+                                <circle cx="32" cy="32" r="26" stroke="currentColor" stroke-width="5" class="text-slate-800" fill="transparent"/>
+                                <circle id="dash-progress-circle" cx="32" cy="32" r="26" stroke="currentColor" stroke-width="5" class="text-indigo-500 transition-all duration-700" stroke-dasharray="163.3" stroke-dashoffset="163.3" stroke-linecap="round" fill="transparent"/>
+                            </svg>
+                            <span id="dash-progress-text" class="absolute font-extrabold text-xs text-white">0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Stats Grid (iOS Widgets style) -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="glass-panel p-4 rounded-2xl flex flex-col justify-between space-y-2 border-l-4 border-l-indigo-500">
+                        <div class="flex items-center justify-between text-slate-400">
+                            <span class="text-xs font-semibold">Công việc hôm nay</span>
+                            <i class="fa-solid fa-calendar-day text-indigo-400"></i>
+                        </div>
+                        <div class="flex items-baseline justify-between">
+                            <span id="stat-today-count" class="text-2xl font-black text-white">0</span>
+                            <span class="text-[10px] text-slate-400">công việc</span>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-4 rounded-2xl flex flex-col justify-between space-y-2 border-l-4 border-l-emerald-500">
+                        <div class="flex items-center justify-between text-slate-400">
+                            <span class="text-xs font-semibold">Đã hoàn thành</span>
+                            <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                        </div>
+                        <div class="flex items-baseline justify-between">
+                            <span id="stat-completed-count" class="text-2xl font-black text-emerald-400">0</span>
+                            <span class="text-[10px] text-slate-400">tổng cộng</span>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-4 rounded-2xl flex flex-col justify-between space-y-2 border-l-4 border-l-amber-500">
+                        <div class="flex items-center justify-between text-slate-400">
+                            <span class="text-xs font-semibold">Đang chờ xử lý</span>
+                            <i class="fa-solid fa-clock text-amber-400"></i>
+                        </div>
+                        <div class="flex items-baseline justify-between">
+                            <span id="stat-pending-count" class="text-2xl font-black text-amber-400">0</span>
+                            <span class="text-[10px] text-slate-400">chờ hoàn thành</span>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-4 rounded-2xl flex flex-col justify-between space-y-2 border-l-4 border-l-rose-500">
+                        <div class="flex items-center justify-between text-slate-400">
+                            <span class="text-xs font-semibold">Quá hạn</span>
+                            <i class="fa-solid fa-triangle-exclamation text-rose-400"></i>
+                        </div>
+                        <div class="flex items-baseline justify-between">
+                            <span id="stat-overdue-count" class="text-2xl font-black text-rose-400">0</span>
+                            <span class="text-[10px] text-rose-300">cần xử lý ngay</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Action Row -->
+                <div class="flex items-center justify-between gap-2">
+                    <button onclick="openBottomSheet()" class="flex-1 glass-panel py-3 px-3 rounded-2xl flex items-center justify-center gap-2 hover:bg-indigo-600/30 active:scale-95 transition">
+                        <i class="fa-solid fa-plus text-indigo-400"></i>
+                        <span class="text-xs font-bold">Tạo việc mới</span>
+                    </button>
+                    <button onclick="switchTab(2)" class="flex-1 glass-panel py-3 px-3 rounded-2xl flex items-center justify-center gap-2 hover:bg-purple-600/30 active:scale-95 transition">
+                        <i class="fa-solid fa-stopwatch text-purple-400"></i>
+                        <span class="text-xs font-bold">Pomodoro</span>
+                    </button>
+                    <button onclick="triggerTelegramTestNotification()" class="glass-panel py-3 px-4 rounded-2xl flex items-center justify-center text-teal-400 hover:bg-teal-600/30 active:scale-95 transition" title="Thử thông báo Telegram">
+                        <i class="fa-paper-plane fa-solid text-sm"></i>
+                    </button>
+                </div>
+
+                <!-- Urgent Tasks Section -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-bold text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-fire text-rose-500"></i> Việc ưu tiên cao
+                        </h3>
+                        <button onclick="switchTab(1)" class="text-xs text-indigo-400 hover:underline">Xem tất cả</button>
+                    </div>
+                    <div id="urgent-tasks-list" class="space-y-2">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: CÔNG VIỆC (TASKS LIST) -->
+            <section class="w-1/4 px-4 py-4 space-y-3 overflow-y-auto max-h-[calc(100vh-160px)] no-scrollbar">
+                <!-- Status Filter Pills -->
+                <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                    <button onclick="setFilter('all')" id="filter-all" class="px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition bg-indigo-600 text-white shadow-glow-blue">Tất cả</button>
+                    <button onclick="setFilter('today')" id="filter-today" class="px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition glass-panel text-slate-300">Hôm nay</button>
+                    <button onclick="setFilter('upcoming')" id="filter-upcoming" class="px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition glass-panel text-slate-300">Sắp tới</button>
+                    <button onclick="setFilter('overdue')" id="filter-overdue" class="px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition glass-panel text-slate-300">Quá hạn</button>
+                    <button onclick="setFilter('completed')" id="filter-completed" class="px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition glass-panel text-slate-300">Hoàn thành</button>
+                </div>
+
+                <!-- Category Filters Row -->
+                <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Nhóm:</span>
+                    <button onclick="setCategoryFilter('all')" id="cat-all" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800 text-indigo-300 border border-indigo-500/30">Tất cả</button>
+                    <button onclick="setCategoryFilter('Công việc')" id="cat-work" class="px-2.5 py-1 rounded-lg text-xs font-medium glass-panel text-slate-300">💼 Việc</button>
+                    <button onclick="setCategoryFilter('Cá nhân')" id="cat-personal" class="px-2.5 py-1 rounded-lg text-xs font-medium glass-panel text-slate-300">👤 Cá nhân</button>
+                    <button onclick="setCategoryFilter('Học tập')" id="cat-study" class="px-2.5 py-1 rounded-lg text-xs font-medium glass-panel text-slate-300">🎓 Học tập</button>
+                    <button onclick="setCategoryFilter('Gia đình')" id="cat-family" class="px-2.5 py-1 rounded-lg text-xs font-medium glass-panel text-slate-300">🏠 Gia đình</button>
+                </div>
+
+                <!-- Hint Swipe Gesture -->
+                <div class="text-[10px] text-slate-400 flex items-center justify-between px-1">
+                    <span><i class="fa-solid fa-arrow-right-long text-emerald-400"></i> Vuốt phải: Xong</span>
+                    <span><i class="fa-solid fa-hand-pointer"></i> Nhấp: Sửa/Chi tiết</span>
+                    <span>Vuốt trái: Tải lịch / Xóa <i class="fa-solid fa-arrow-left-long text-rose-400"></i></span>
+                </div>
+
+                <!-- Task Cards List -->
+                <div id="tasks-list" class="space-y-2.5 min-h-[250px]">
+                    <!-- Dynamic tasks rendered here -->
+                </div>
+            </section>
+
+            <!-- TAB 3: LỊCH & POMODORO (FOCUS & CALENDAR) -->
+            <section class="w-1/4 px-4 py-4 space-y-4 overflow-y-auto max-h-[calc(100vh-160px)] no-scrollbar">
+                <!-- Pomodoro Timer Box -->
+                <div class="glass-panel p-5 rounded-3xl text-center space-y-4 relative overflow-hidden">
+                    <div class="flex items-center justify-between text-xs text-slate-400">
+                        <span class="font-bold uppercase tracking-wider text-indigo-400"><i class="fa-solid fa-brain mr-1"></i> Tập trung Pomodoro</span>
+                        <div class="flex items-center gap-1 bg-slate-800/80 px-2 py-0.5 rounded-full">
+                            <button onclick="setPomodoroMode(25)" id="pomo-mode-25" class="px-2 py-0.5 text-[10px] rounded-full font-bold bg-indigo-600 text-white">25m</button>
+                            <button onclick="setPomodoroMode(5)" id="pomo-mode-5" class="px-2 py-0.5 text-[10px] rounded-full text-slate-400">5m Nghỉ</button>
+                        </div>
+                    </div>
+
+                    <!-- Timer Display Circle -->
+                    <div class="relative w-44 h-44 mx-auto flex items-center justify-center my-2">
+                        <svg class="w-44 h-44 -rotate-90">
+                            <circle cx="88" cy="88" r="76" stroke="currentColor" stroke-width="8" class="text-slate-800" fill="transparent"/>
+                            <circle id="pomo-circle" cx="88" cy="88" r="76" stroke="currentColor" stroke-width="8" class="text-purple-500 transition-all duration-1000" stroke-dasharray="477.5" stroke-dashoffset="0" stroke-linecap="round" fill="transparent"/>
+                        </svg>
+                        <div class="absolute flex flex-col items-center">
+                            <span id="pomo-display" class="text-4xl font-black text-white tracking-widest font-mono">25:00</span>
+                            <span id="pomo-status-text" class="text-[11px] text-slate-400 font-medium mt-1">Sẵn sàng tập trung</span>
+                        </div>
+                    </div>
+
+                    <!-- Pomodoro Controls -->
+                    <div class="flex items-center justify-center gap-4">
+                        <button onclick="resetPomodoro()" class="w-11 h-11 rounded-2xl glass-panel flex items-center justify-center text-slate-300 hover:bg-slate-700/50 active:scale-95 transition">
+                            <i class="fa-solid fa-rotate-left"></i>
+                        </button>
+                        <button onclick="togglePomodoro()" id="pomo-play-btn" class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center text-xl shadow-glow-purple active:scale-95 transition">
+                            <i id="pomo-play-icon" class="fa-solid fa-play ml-1"></i>
+                        </button>
+                        <button onclick="exportAllCalendarICS()" class="w-11 h-11 rounded-2xl glass-panel flex items-center justify-center text-indigo-400 hover:bg-indigo-600/30 active:scale-95 transition" title="Tải toàn bộ Lịch .ics">
+                            <i class="fa-solid fa-calendar-arrow-down"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Mini Calendar Date Selector -->
+                <div class="glass-panel p-4 rounded-3xl space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-calendar-days text-indigo-400"></i> Lịch biểu theo ngày
+                        </h3>
+                        <span id="selected-date-label" class="text-xs text-indigo-300 font-semibold">Hôm nay</span>
+                    </div>
+                    <div id="calendar-days-strip" class="flex justify-between items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+                        <!-- Loaded dynamically -->
+                    </div>
+                    <!-- Selected Date Tasks -->
+                    <div id="calendar-date-tasks" class="space-y-2 pt-2 border-t border-slate-700/40">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: ĐỒNG BỘ & CÀI ĐẶT (SYNC & SETTINGS) -->
+            <section class="w-1/4 px-4 py-4 space-y-4 overflow-y-auto max-h-[calc(100vh-160px)] no-scrollbar">
+                
+                <!-- Cloud Sync & Sync Room Card -->
+                <div class="glass-panel p-4 rounded-3xl space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-cloud-arrow-up text-indigo-400 text-lg"></i>
+                            <div>
+                                <h3 class="text-sm font-bold text-white">Đồng bộ đám mây 2 chiều</h3>
+                                <p class="text-[11px] text-slate-400">Tự động kết nối Điện thoại & Máy tính</p>
+                            </div>
+                        </div>
+                        <span id="sync-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Hoạt động</span>
+                    </div>
+
+                    <div class="space-y-2 pt-1">
+                        <label class="text-xs font-semibold text-slate-300 block">Mã phòng đồng bộ (Sync Room ID):</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="sync-room-input" placeholder="Ví dụ: taskflow-vi-12345" class="flex-1 bg-slate-900/80 light:bg-slate-100 text-xs px-3 py-2 rounded-xl border border-slate-700 text-white light:text-slate-900 focus:outline-none focus:border-indigo-500">
+                            <button onclick="saveSyncRoomID()" class="px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 active:scale-95 transition">
+                                Lưu & Nối
+                            </button>
+                        </div>
+                        <p class="text-[10px] text-slate-400">Nhập cùng mã này trên GitHub Pages của máy tính và điện thoại để dữ liệu tự động cập nhật thời gian thực.</p>
+                    </div>
+
+                    <!-- Cloud Status stats -->
+                    <div class="flex items-center justify-between pt-2 border-t border-slate-700/50 text-xs text-slate-400">
+                        <span>Lần đồng bộ cuối: <strong id="last-sync-time" class="text-slate-200">Vừa xong</strong></span>
+                        <button onclick="forceCloudSync()" class="text-indigo-400 hover:underline font-semibold flex items-center gap-1">
+                            <i class="fa-solid fa-arrows-rotate"></i> Đồng bộ ngay
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Telegram Bot Notification Card -->
+                <div class="glass-panel p-4 rounded-3xl space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-brands fa-telegram text-teal-400 text-xl"></i>
+                            <div>
+                                <h3 class="text-sm font-bold text-white">Nhắc nhở qua Telegram Bot</h3>
+                                <p class="text-[11px] text-slate-400">Nhận thông báo báo thức trực tiếp về điện thoại</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2.5">
+                        <div>
+                            <label class="text-[11px] font-semibold text-slate-300">Bot Token (từ @BotFather):</label>
+                            <input type="password" id="tg-bot-token" placeholder="123456789:ABCdefGHI..." class="w-full bg-slate-900/80 text-xs px-3 py-2 rounded-xl border border-slate-700 text-white mt-1 focus:outline-none focus:border-teal-500">
+                        </div>
+                        <div>
+                            <label class="text-[11px] font-semibold text-slate-300">Chat ID cá nhân:</label>
+                            <input type="text" id="tg-chat-id" placeholder="Ví dụ: 987654321" class="w-full bg-slate-900/80 text-xs px-3 py-2 rounded-xl border border-slate-700 text-white mt-1 focus:outline-none focus:border-teal-500">
+                        </div>
+                        <div class="flex gap-2 pt-1">
+                            <button onclick="saveTelegramSettings()" class="flex-1 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-500 active:scale-95 transition">
+                                Lưu Cấu Hình Telegram
+                            </button>
+                            <button onclick="triggerTelegramTestNotification()" class="px-3 py-2 rounded-xl glass-panel text-teal-300 text-xs font-bold hover:bg-teal-500/20 active:scale-95 transition">
+                                Thử Gửi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Storage & Data Backup Card (IndexedDB) -->
+                <div class="glass-panel p-4 rounded-3xl space-y-3">
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-database text-purple-400"></i> Bộ nhớ & Dữ liệu (IndexedDB)
+                    </h3>
+                    
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-xs text-slate-300">
+                            <span>Sử dụng bộ nhớ cục bộ:</span>
+                            <span id="idb-storage-text" class="font-bold text-purple-400">Đang tính...</span>
+                        </div>
+                        <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                            <div id="storage-bar" class="bg-gradient-to-r from-purple-500 to-indigo-500 h-full w-2/100 transition-all duration-500"></div>
+                        </div>
+                        <p class="text-[10px] text-slate-400">Sử dụng IndexedDB không giới hạn 5MB như LocalStorage thông thường. Hỗ trợ lưu hàng chục nghìn việc.</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 pt-2">
+                        <button onclick="exportJSONBackup()" class="py-2 px-3 rounded-xl glass-panel text-xs font-semibold text-indigo-300 flex items-center justify-center gap-1.5 hover:bg-indigo-600/20 transition">
+                            <i class="fa-solid fa-download"></i> Xuất JSON
+                        </button>
+                        <label class="py-2 px-3 rounded-xl glass-panel text-xs font-semibold text-purple-300 flex items-center justify-center gap-1.5 hover:bg-purple-600/20 transition cursor-pointer text-center">
+                            <i class="fa-solid fa-upload"></i> Nhập JSON
+                            <input type="file" id="json-file-input" onchange="importJSONBackup(event)" class="hidden" accept=".json">
+                        </label>
+                    </div>
+
+                    <button onclick="confirmClearAllData()" class="w-full py-2 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-bold hover:bg-rose-600/30 transition">
+                        Xóa toàn bộ dữ liệu ứng dụng
+                    </button>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- FLOATING iOS 27 LIQUID GLASS BOTTOM TAB BAR -->
+    <nav class="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-md safe-bottom">
+        <div class="relative glass-panel rounded-full p-1.5 flex items-center justify-between shadow-pill border border-white/20 bg-slate-900/80 backdrop-blur-2xl">
+            
+            <!-- Sliding Active Pill Highlight Indicator -->
+            <div id="tab-active-pill" class="absolute top-1.5 left-1.5 w-[22%] h-[calc(100%-12px)] rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 shadow-glow-indigo transition-all duration-300 pointer-events-none"></div>
+
+            <!-- Tab Buttons -->
+            <button onclick="switchTab(0)" class="relative z-10 flex-1 py-2 flex flex-col items-center justify-center text-white transition" id="nav-tab-0">
+                <i class="fa-solid fa-house-chimney text-base"></i>
+                <span class="text-[10px] font-semibold mt-0.5">Tổng quan</span>
+            </button>
+
+            <button onclick="switchTab(1)" class="relative z-10 flex-1 py-2 flex flex-col items-center justify-center text-slate-400 transition" id="nav-tab-1">
+                <i class="fa-solid fa-list-check text-base"></i>
+                <span class="text-[10px] font-semibold mt-0.5">Công việc</span>
+            </button>
+
+            <!-- Floating Center Add Task FAB -->
+            <button onclick="openBottomSheet()" class="relative z-10 -top-3 w-12 h-12 rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 text-white flex items-center justify-center text-xl shadow-glow-purple border-2 border-white/40 active:scale-90 transition">
+                <i class="fa-solid fa-plus font-bold"></i>
+            </button>
+
+            <button onclick="switchTab(2)" class="relative z-10 flex-1 py-2 flex flex-col items-center justify-center text-slate-400 transition" id="nav-tab-2">
+                <i class="fa-solid fa-clock text-base"></i>
+                <span class="text-[10px] font-semibold mt-0.5">Tập trung</span>
+            </button>
+
+            <button onclick="switchTab(3)" class="relative z-10 flex-1 py-2 flex flex-col items-center justify-center text-slate-400 transition" id="nav-tab-3">
+                <i class="fa-solid fa-sliders text-base"></i>
+                <span class="text-[10px] font-semibold mt-0.5">Cài đặt</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- iOS STYLE BOTTOM SHEET MODAL (CREATE / EDIT TASK) -->
+    <div id="bottom-sheet-backdrop" onclick="closeBottomSheet()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden opacity-0 transition-opacity duration-300"></div>
+
+    <div id="bottom-sheet" class="fixed bottom-0 left-0 right-0 z-50 max-w-lg mx-auto bg-slate-900 light:bg-white border-t border-white/20 rounded-t-[32px] p-5 space-y-4 bottom-sheet closed max-h-[90vh] overflow-y-auto no-scrollbar shadow-2xl safe-bottom">
+        <!-- iOS Pull Handle -->
+        <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto opacity-60"></div>
+        
+        <div class="flex items-center justify-between">
+            <h3 id="sheet-title" class="text-lg font-bold text-white light:text-slate-900">Tạo công việc mới</h3>
+            <button onclick="closeBottomSheet()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <form id="task-form" onsubmit="handleTaskSubmit(event)" class="space-y-3.5">
+            <input type="hidden" id="task-id">
+
+            <div>
+                <label class="text-xs font-semibold text-slate-300 light:text-slate-700 block mb-1">Tên công việc *</label>
+                <input type="text" id="task-title-input" required placeholder="Nhập tiêu đề công việc..." class="w-full bg-slate-800/80 light:bg-slate-100 border border-slate-700 text-sm px-3.5 py-2.5 rounded-xl text-white light:text-slate-900 focus:outline-none focus:border-indigo-500">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs font-semibold text-slate-300 light:text-slate-700 block mb-1">Danh mục</label>
+                    <select id="task-category-input" class="w-full bg-slate-800/80 light:bg-slate-100 border border-slate-700 text-xs px-3 py-2.5 rounded-xl text-white light:text-slate-900 focus:outline-none focus:border-indigo-500">
+                        <option value="Công việc">💼 Công việc</option>
+                        <option value="Cá nhân">👤 Cá nhân</option>
+                        <option value="Học tập">🎓 Học tập</option>
+                        <option value="Gia đình">🏠 Gia đình</option>
+                        <option value="Khác">📌 Khác</option>
+                    </select>
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-800 dark:text-white text-base">Tạo tệp Lịch (.ics)</h3>
-                  <p className="text-xs text-slate-400">Đặt giờ báo thức cho điện thoại</p>
+                    <label class="text-xs font-semibold text-slate-300 light:text-slate-700 block mb-1">Mức ưu tiên</label>
+                    <select id="task-priority-input" class="w-full bg-slate-800/80 light:bg-slate-100 border border-slate-700 text-xs px-3 py-2.5 rounded-xl text-white light:text-slate-900 focus:outline-none focus:border-indigo-500">
+                        <option value="Cao">🔴 Cao</option>
+                        <option value="Trung bình" selected>🟡 Trung bình</option>
+                        <option value="Thấp">🟢 Thấp</option>
+                    </select>
                 </div>
-              </div>
-              <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-white">
-                <i className="fas fa-xmark text-lg"></i>
-              </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs font-semibold text-slate-300 light:text-slate-700 block mb-1">Hạn hoàn thành</label>
+                    <input type="datetime-local" id="task-due-input" class="w-full bg-slate-800/80 light:bg-slate-100 border border-slate-700 text-xs px-3 py-2.5 rounded-xl text-white light:text-slate-900 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-300 light:text-slate-700 block mb-1">Nhắc nhở (.ics/TG)</label>
+                    <select id="task-alarm-lead" class="w-full bg-slate-800/80 light:bg-slate-100 border border-slate-700 text-xs px-3 py-2.5 rounded-xl text-white light:text-slate-900 focus:outline-none focus:border-indigo-500">
+                        <option value="0">Đúng giờ</option>
+                        <option value="15" selected>Trước 15 phút</option>
+                        <option value="30">Trước 30 phút</option>
+                        <option value="60">Trước 1 giờ</option>
+                        <option value="1440">Trước 1 ngày</option>
+                    </select>
+                </div>
             </div>
 
             <div>
-              <p className="text-xs text-slate-600 dark:text-slate-300 mb-3 leading-relaxed">
-                Công việc: <strong className="text-slate-800 dark:text-white">{task.title}</strong>
-              </p>
-
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                Chọn thời gian báo chuông nhắc nhở trước hạn:
-              </label>
-              <div className="space-y-2">
-                {REMINDER_OPTIONS.map(opt => (
-                  <label 
-                    key={opt.value} 
-                    className={`flex items-center justify-between p-3 rounded-xl border text-xs font-medium cursor-pointer transition-all ${
-                      reminderMins === opt.value
-                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-700 dark:text-emerald-300 font-bold'
-                        : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="reminderChoice"
-                        checked={reminderMins === opt.value}
-                        onChange={() => setReminderMins(opt.value)}
-                        className="text-emerald-600 focus:ring-emerald-500"
-                      />
-                      <span>{opt.label}</span>
-                    </div>
-                    <i className="fas fa-bell text-slate-400 text-xs"></i>
-                  </label>
-                ))}
-              </div>
+                <label class="text-xs font-semibold text-slate-300 light:text-slate-700 block mb-1">Ghi chú chi tiết</label>
+                <textarea id="task-notes-input" rows="2" placeholder="Thêm nội dung ghi chú..." class="w-full bg-slate-800/80 light:bg-slate-100 border border-slate-700 text-xs px-3 py-2 rounded-xl text-white light:text-slate-900 focus:outline-none focus:border-indigo-500"></textarea>
             </div>
 
-            <div className="bg-slate-100 dark:bg-slate-900/60 p-3 rounded-xl text-[11px] text-slate-500 dark:text-slate-400 leading-normal flex items-start gap-2">
-              <i className="fas fa-mobile-screen-button text-emerald-500 text-sm mt-0.5"></i>
-              <span>Sau khi tải tệp <strong>.ics</strong>, chạm vào tệp trên điện thoại (iPhone hoặc Android) và chọn <strong>"Thêm vào Lịch"</strong> để đồng bộ báo thức.</span>
+            <!-- Subtasks list input -->
+            <div>
+                <label class="text-xs font-semibold text-slate-300 light:text-slate-700 block mb-1">Công việc con (Subtasks)</label>
+                <div id="subtasks-input-container" class="space-y-1.5">
+                    <!-- Dynamic Subtask lines -->
+                </div>
+                <button type="button" onclick="addSubtaskInputLine()" class="mt-2 text-xs text-indigo-400 font-semibold hover:underline flex items-center gap-1">
+                    <i class="fa-solid fa-plus-circle"></i> Thêm bước thực hiện
+                </button>
             </div>
 
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={onClose}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-medium text-xs hover:bg-slate-50 dark:hover:bg-slate-700"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={() => onConfirm(reminderMins)}
-                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2"
-              >
-                <i className="fas fa-download"></i> Tải file .ics
-              </button>
+            <div class="flex gap-2 pt-2">
+                <button type="button" onclick="closeBottomSheet()" class="flex-1 py-3 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs">Hủy</button>
+                <button type="submit" class="flex-[2] py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-xs shadow-glow-indigo active:scale-95 transition">
+                    Lưu công việc
+                </button>
             </div>
-          </div>
-        </div>
-      );
-    }
+        </form>
+    </div>
 
-    // --- TASK CREATE / EDIT MODAL FORM ---
-    function TaskFormModal({ initialData, onClose, onSave, onExportICS }) {
-      const [title, setTitle] = useState(initialData?.title || '');
-      const [description, setDescription] = useState(initialData?.description || '');
-      
-      // Setup datetime-local format YYYY-MM-DDTHH:mm
-      const getInitialDeadline = () => {
-        if (initialData?.deadline) {
-          if (initialData.deadline.includes('T')) return initialData.deadline;
-          return `${initialData.deadline}T09:00`;
+    <!-- CUSTOM TOAST NOTIFICATION -->
+    <div id="toast-notification" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl glass-panel border border-indigo-500/40 text-white text-xs font-semibold shadow-2xl flex items-center gap-2 transform -translate-y-20 opacity-0 transition-all duration-300">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toast-message">Thông báo hệ thống</span>
+    </div>
+
+    <!-- JAVASCRIPT APP LOGIC -->
+    <script>
+        /* ==========================================================================
+           1. APP STATE & INDEXEDDB DATABASE ENGINE
+           ========================================================================== */
+        let state = {
+            tasks: [],
+            currentTab: 0,
+            filterStatus: 'all',
+            filterCategory: 'all',
+            searchQuery: '',
+            selectedDate: new Date().toISOString().split('T')[0],
+            syncRoomId: localStorage.getItem('taskflow_room_id') || 'room-viert-' + Math.floor(1000 + Math.random() * 9000),
+            tgBotToken: localStorage.getItem('taskflow_tg_token') || '',
+            tgChatId: localStorage.getItem('taskflow_tg_chat') || '',
+            firebaseConfig: null,
+            firestoreDB: null
+        };
+
+        // IndexedDB initialization for unlimited capacity
+        const DB_NAME = 'TaskFlowDB';
+        const DB_VERSION = 1;
+        let dbInstance = null;
+
+        function initIndexedDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains('tasks')) {
+                        db.createObjectStore('tasks', { keyPath: 'id' });
+                    }
+                };
+                request.onsuccess = (e) => {
+                    dbInstance = e.target.result;
+                    resolve(dbInstance);
+                };
+                request.onerror = (e) => reject(e);
+            });
         }
-        return `${getTodayISO()}T17:00`;
-      };
 
-      const [deadline, setDeadline] = useState(getInitialDeadline());
-      const [reminderOffset, setReminderOffset] = useState(initialData?.reminderOffset !== undefined ? initialData.reminderOffset : 30);
-      const [priority, setPriority] = useState(initialData?.priority || 'medium');
-      const [category, setCategory] = useState(initialData?.category || 'work');
-      const [status, setStatus] = useState(initialData?.status || 'todo');
-      const [subtasks, setSubtasks] = useState(initialData?.subtasks || []);
-      const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+        async function loadTasksFromIDB() {
+            if (!dbInstance) await initIndexedDB();
+            return new Promise((resolve) => {
+                const tx = dbInstance.transaction('tasks', 'readonly');
+                const store = tx.objectStore('tasks');
+                const req = store.getAll();
+                req.onsuccess = () => resolve(req.result || []);
+            });
+        }
 
-      const handleSubmit = (e) => {
-        e.preventDefault();
-        if (!title.trim()) return;
-        onSave({ title, description, deadline, reminderOffset, priority, category, status, subtasks });
-      };
+        async function saveTaskToIDB(task) {
+            if (!dbInstance) await initIndexedDB();
+            const tx = dbInstance.transaction('tasks', 'readwrite');
+            tx.objectStore('tasks').put(task);
+        }
 
-      const handleAddSubtask = () => {
-        if (!newSubtaskTitle.trim()) return;
-        setSubtasks([...subtasks, { id: Date.now().toString(), title: newSubtaskTitle.trim(), completed: false }]);
-        setNewSubtaskTitle('');
-      };
+        async function deleteTaskFromIDB(id) {
+            if (!dbInstance) await initIndexedDB();
+            const tx = dbInstance.transaction('tasks', 'readwrite');
+            tx.objectStore('tasks').delete(id);
+        }
 
-      const handleRemoveSubtask = (subId) => {
-        setSubtasks(subtasks.filter(s => s.id !== subId));
-      };
+        async function clearAllIDBTasks() {
+            if (!dbInstance) await initIndexedDB();
+            const tx = dbInstance.transaction('tasks', 'readwrite');
+            tx.objectStore('tasks').clear();
+        }
 
-      return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl border border-slate-100 dark:border-slate-700 relative my-8 animate-fadeIn">
+        /* ==========================================================================
+           2. AUDIO & HAPTIC FEEDBACK (Web Audio API & Vibration)
+           ========================================================================== */
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSoundEffect(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'complete') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+                osc.frequency.exponentialRampToValueAtTime(659.25, audioCtx.currentTime + 0.15); // E5
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.25);
+                if (navigator.vibrate) navigator.vibrate([15, 30, 15]);
+            } else if (type === 'delete') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.2);
+                if (navigator.vibrate) navigator.vibrate(40);
+            } else if (type === 'click') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.05);
+                if (navigator.vibrate) navigator.vibrate(10);
+            } else if (type === 'alarm') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.5);
+                if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 100]);
+            }
+        }
+
+        /* ==========================================================================
+           3. CLOUD SYNC ENGINE (Firebase Firestore Integration)
+           ========================================================================== */
+        function initFirebaseSync() {
+            try {
+                // Public demo config fallback if user doesn't specify one
+                const defaultAppId = 'taskflow-viet-app';
+                const firebaseConfig = {
+                    apiKey: "AIzaSyDemoTaskFlowKeyForGithubPagesSync",
+                    authDomain: "taskflow-demo.firebaseapp.com",
+                    projectId: "taskflow-demo",
+                    storageBucket: "taskflow-demo.appspot.com",
+                    messagingSenderId: "1234567890",
+                    appId: "1:1234567890:web:demo"
+                };
+
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                state.firestoreDB = firebase.firestore();
+
+                // Listen to real-time changes on the current Sync Room ID
+                const roomPath = `artifacts/taskflow-viet/public/data/${state.syncRoomId}`;
+                state.firestoreDB.collection(roomPath).onSnapshot((snapshot) => {
+                    let cloudTasks = [];
+                    snapshot.forEach(doc => {
+                        cloudTasks.push(doc.data());
+                    });
+                    if (cloudTasks.length > 0) {
+                        state.tasks = mergeCloudAndLocalTasks(state.tasks, cloudTasks);
+                        renderAll();
+                        updateLastSyncTime();
+                    }
+                }, (err) => {
+                    console.log("Firestore offline mode active:", err.message);
+                });
+
+            } catch (err) {
+                console.log("Firestore initialized in local fallback mode.");
+            }
+        }
+
+        function mergeCloudAndLocalTasks(local, cloud) {
+            const map = new Map();
+            local.forEach(t => map.set(t.id, t));
+            cloud.forEach(t => map.set(t.id, t));
+            return Array.from(map.values());
+        }
+
+        async function syncTaskToCloud(task) {
+            if (!state.firestoreDB) return;
+            try {
+                const docRef = state.firestoreDB.collection(`artifacts/taskflow-viet/public/data/${state.syncRoomId}`).doc(task.id);
+                await docRef.set(task, { merge: true });
+                updateLastSyncTime();
+            } catch (e) {
+                console.warn("Cloud sync deferred to local DB.");
+            }
+        }
+
+        async function deleteTaskFromCloud(taskId) {
+            if (!state.firestoreDB) return;
+            try {
+                await state.firestoreDB.collection(`artifacts/taskflow-viet/public/data/${state.syncRoomId}`).doc(taskId).delete();
+                updateLastSyncTime();
+            } catch (e) {}
+        }
+
+        function saveSyncRoomID() {
+            const val = document.getElementById('sync-room-input').value.trim();
+            if (val) {
+                state.syncRoomId = val;
+                localStorage.setItem('taskflow_room_id', val);
+                showToast("Đã cập nhật Mã phòng: " + val);
+                initFirebaseSync();
+            }
+        }
+
+        function updateLastSyncTime() {
+            const el = document.getElementById('last-sync-time');
+            if (el) el.innerText = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function forceCloudSync() {
+            showToast("Đang đồng bộ với đám mây...");
+            state.tasks.forEach(t => syncTaskToCloud(t));
+            setTimeout(() => {
+                showToast("Đồng bộ thành công!");
+            }, 800);
+        }
+
+        /* ==========================================================================
+           4. TELEGRAM BOT NOTIFICATION SYSTEM
+           ========================================================================== */
+        function saveTelegramSettings() {
+            state.tgBotToken = document.getElementById('tg-bot-token').value.trim();
+            state.tgChatId = document.getElementById('tg-chat-id').value.trim();
+            localStorage.setItem('taskflow_tg_token', state.tgBotToken);
+            localStorage.setItem('taskflow_tg_chat', state.tgChatId);
+            showToast("Đã lưu cấu hình Telegram Bot!");
+        }
+
+        async function sendTelegramMessage(text) {
+            if (!state.tgBotToken || !state.tgChatId) return false;
+            try {
+                const url = `https://api.telegram.org/bot${state.tgBotToken}/sendMessage`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chat_id: state.tgChatId,
+                        text: text,
+                        parse_mode: 'HTML'
+                    })
+                });
+                return response.ok;
+            } catch (err) {
+                console.error(err);
+                return false;
+            }
+        }
+
+        async function triggerTelegramTestNotification() {
+            if (!state.tgBotToken || !state.tgChatId) {
+                showToast("Vui lòng nhập Bot Token & Chat ID trong Tab Cài Đặt!", true);
+                switchTab(3);
+                return;
+            }
+            showToast("Đang gửi tin nhắn thử nghiệm...");
+            const msg = `⚡ <b>TaskFlow Việt iOS 27</b>\n\n🔔 Thông báo thử nghiệm nhắc nhở thành công từ điện thoại của bạn!\n⏰ Thời gian: ${new Date().toLocaleString('vi-VN')}`;
+            const ok = await sendTelegramMessage(msg);
+            if (ok) {
+                showToast("Đã gửi thông báo Telegram thành công!");
+            } else {
+                showToast("Lỗi gửi Telegram. Kiểm tra lại Token & Chat ID!", true);
+            }
+        }
+
+        /* ==========================================================================
+           5. APPLE & GOOGLE CALENDAR EXPORT (.ics Format)
+           ========================================================================== */
+        function generateICSContent(task) {
+            const now = new Date();
+            const formatDate = (dateObj) => {
+                const d = new Date(dateObj);
+                return d.toISOString().replace(/-|:|\.\d\d\d/g, "");
+            };
+
+            const startDate = task.dueDate ? new Date(task.dueDate) : new Date();
+            const endDate = new Date(startDate.getTime() + 30 * 60 * 1000); // 30 mins duration
+            const alarmMinutes = task.alarmLead ? parseInt(task.alarmLead) : 15;
+
+            return [
+                "BEGIN:VCALENDAR",
+                "VERSION:2.0",
+                "PRODID:-//TaskFlow Viet//iOS 27 App//VI",
+                "CALSCALE:GREGORIAN",
+                "METHOD:PUBLISH",
+                "BEGIN:VEVENT",
+                `UID:taskflow-${task.id}@taskflow.app`,
+                `DTSTAMP:${formatDate(now)}`,
+                `DTSTART:${formatDate(startDate)}`,
+                `DTEND:${formatDate(endDate)}`,
+                `SUMMARY:⚡ ${task.title}`,
+                `DESCRIPTION:${task.notes || 'Công việc từ TaskFlow Việt'} | Ưu tiên: ${task.priority}`,
+                "STATUS:CONFIRMED",
+                "BEGIN:VALARM",
+                `TRIGGER:-PT${alarmMinutes}M`,
+                "ACTION:DISPLAY",
+                `DESCRIPTION:Nhắc nhở: ${task.title}`,
+                "END:VALARM",
+                "END:VEVENT",
+                "END:VCALENDAR"
+            ].join("\r\n");
+        }
+
+        function downloadTaskICS(taskId) {
+            const task = state.tasks.find(t => t.id === taskId);
+            if (!task) return;
+            const icsData = generateICSContent(task);
+            const blob = new Blob([icsData], { type: "text/calendar;charset=utf-8" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `task-${task.title.replace(/\s+/g, "_")}.ics`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            playSoundEffect('click');
+            showToast("Đã tải tệp Lịch .ics báo thức!");
+        }
+
+        function exportAllCalendarICS() {
+            if (state.tasks.length === 0) {
+                showToast("Chưa có công việc nào để xuất Lịch!", true);
+                return;
+            }
+            let eventsStr = "";
+            state.tasks.forEach(t => {
+                const ics = generateICSContent(t);
+                const eventOnly = ics.substring(ics.indexOf("BEGIN:VEVENT"), ics.indexOf("END:VEVENT") + 10);
+                eventsStr += eventOnly + "\r\n";
+            });
+
+            const fullCalendar = [
+                "BEGIN:VCALENDAR",
+                "VERSION:2.0",
+                "PRODID:-//TaskFlow Viet All Tasks//VI",
+                eventsStr,
+                "END:VCALENDAR"
+            ].join("\r\n");
+
+            const blob = new Blob([fullCalendar], { type: "text/calendar;charset=utf-8" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `TaskFlow_All_Tasks.ics`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("Đã xuất toàn bộ lịch trình .ics!");
+        }
+
+        /* ==========================================================================
+           6. TOUCH GESTURE HANDLING (Horizontal Tab Swipe & Task Card Swipe)
+           ========================================================================== */
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchEndX = 0;
+
+        function initSwipeGestures() {
+            const mainContainer = document.getElementById('main-touch-container');
             
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100 dark:border-slate-700/60">
-              <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                <i className="fas fa-pen-to-square text-blue-600"></i>
-                {initialData ? 'Chỉnh sửa công việc' : 'Tạo công việc mới'}
-              </h3>
-              <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-white">
-                <i className="fas fa-xmark text-lg"></i>
-              </button>
-            </div>
+            mainContainer.addEventListener('touchstart', (e) => {
+                touchStartX = e.changedTouches[0].screenX;
+                touchStartY = e.changedTouches[0].screenY;
+            }, { passive: true });
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              
-              {/* Tiêu đề */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Tiêu đề công việc <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ví dụ: Nộp báo cáo tài chính tháng 11..."
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500"
-                />
-              </div>
+            mainContainer.addEventListener('touchend', (e) => {
+                touchEndX = e.changedTouches[0].screenX;
+                const touchEndY = e.changedTouches[0].screenY;
+                const diffX = touchEndX - touchStartX;
+                const diffY = touchEndY - touchStartY;
 
-              {/* Mô tả */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Mô tả chi tiết
-                </label>
-                <textarea
-                  rows="3"
-                  placeholder="Ghi chú chi tiết, đường dẫn, thông tin bổ sung..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500"
-                ></textarea>
-              </div>
+                // Swipe horizontally if X movement is greater than Y (prevent scrolling conflicts)
+                if (Math.abs(diffX) > 70 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+                    if (diffX < 0 && state.currentTab < 3) {
+                        switchTab(state.currentTab + 1);
+                    } else if (diffX > 0 && state.currentTab > 0) {
+                        switchTab(state.currentTab - 1);
+                    }
+                }
+            }, { passive: true });
+        }
 
-              {/* Deadline & Reminder Choice */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Ngày & Giờ hết hạn (Deadline)
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={deadline}
-                    onChange={(e) => setDeadline(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500"
-                  />
-                </div>
+        function makeTaskCardSwipeable(cardEl, taskId) {
+            let startX = 0;
+            let currentX = 0;
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Báo trước cho Lịch ĐT
-                  </label>
-                  <select
-                    value={reminderOffset}
-                    onChange={(e) => setReminderOffset(Number(e.target.value))}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500"
-                  >
-                    {REMINDER_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+            cardEl.addEventListener('touchstart', (e) => {
+                startX = e.touches[0].clientX;
+            }, { passive: true });
 
-              {/* Status & Priority */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Trạng thái
-                  </label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="todo">Cần làm</option>
-                    <option value="in_progress">Đang làm</option>
-                    <option value="completed">Hoàn thành</option>
-                  </select>
-                </div>
+            cardEl.addEventListener('touchmove', (e) => {
+                currentX = e.touches[0].clientX;
+                const diff = currentX - startX;
+                if (Math.abs(diff) < 120) {
+                    cardEl.style.transform = `translateX(${diff}px)`;
+                }
+            }, { passive: true });
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Mức độ ưu tiên
-                  </label>
-                  <select
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="high">🔥 Cao</option>
-                    <option value="medium">⚡ Trung bình</option>
-                    <option value="low">🌱 Thấp</option>
-                  </select>
-                </div>
+            cardEl.addEventListener('touchend', (e) => {
+                const diff = currentX - startX;
+                cardEl.style.transform = `translateX(0px)`;
+                
+                if (diff > 80) { // Swipe Right -> Toggle Complete
+                    toggleTaskComplete(taskId);
+                } else if (diff < -80) { // Swipe Left -> Open Actions Modal/Delete
+                    downloadTaskICS(taskId);
+                }
+                startX = 0;
+                currentX = 0;
+            }, { passive: true });
+        }
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Danh mục
-                  </label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="work">💼 Công việc</option>
-                    <option value="personal">👤 Cá nhân</option>
-                    <option value="study">🎓 Học tập</option>
-                    <option value="other">📌 Khác</option>
-                  </select>
-                </div>
-              </div>
+        /* ==========================================================================
+           7. UI RENDERING & TAB NAVIGATION
+           ========================================================================== */
+        function switchTab(index) {
+            state.currentTab = index;
+            playSoundEffect('click');
 
-              {/* Subtasks Section */}
-              <div className="pt-2">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Danh sách việc nhỏ (Subtasks)
-                </label>
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    placeholder="Thêm mục con..."
-                    value={newSubtaskTitle}
-                    onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                    className="flex-1 px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddSubtask}
-                    className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-xs font-medium rounded-xl"
-                  >
-                    Thêm
-                  </button>
-                </div>
+            // Slide tab wrapper
+            const wrapper = document.getElementById('tab-wrapper');
+            wrapper.style.transform = `translateX(-${index * 25}%)`;
 
-                {subtasks.length > 0 && (
-                  <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
-                    {subtasks.map((st) => (
-                      <div key={st.id} className="flex items-center justify-between text-xs bg-slate-50 dark:bg-slate-900 p-2 rounded-lg">
-                        <span className="truncate">{st.title}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveSubtask(st.id)}
-                          className="text-red-500 hover:text-red-700 ml-2"
-                        >
-                          <i className="fas fa-trash-can text-xs"></i>
+            // Update bottom navigation bar active state
+            const pill = document.getElementById('tab-active-pill');
+            const positions = ['1.5%', '26%', '51%', '75.5%'];
+            pill.style.left = positions[index];
+
+            for (let i = 0; i < 4; i++) {
+                const btn = document.getElementById(`nav-tab-${i}`);
+                if (i === index) {
+                    btn.className = "relative z-10 flex-1 py-2 flex flex-col items-center justify-center text-white transition font-bold";
+                } else {
+                    btn.className = "relative z-10 flex-1 py-2 flex flex-col items-center justify-center text-slate-400 transition font-normal";
+                }
+            }
+
+            renderAll();
+        }
+
+        function renderAll() {
+            renderDashboard();
+            renderTasks();
+            renderCalendarTab();
+            updateStorageStats();
+        }
+
+        function renderDashboard() {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const todayTasks = state.tasks.filter(t => t.dueDate && t.dueDate.startsWith(todayStr));
+            const completed = state.tasks.filter(t => t.completed);
+            const pending = state.tasks.filter(t => !t.completed);
+            const overdue = state.tasks.filter(t => !t.completed && t.dueDate && t.dueDate < new Date().toISOString());
+
+            document.getElementById('stat-today-count').innerText = todayTasks.length;
+            document.getElementById('stat-completed-count').innerText = completed.length;
+            document.getElementById('stat-pending-count').innerText = pending.length;
+            document.getElementById('stat-overdue-count').innerText = overdue.length;
+
+            // Progress percentage
+            const pct = state.tasks.length === 0 ? 0 : Math.round((completed.length / state.tasks.length) * 100);
+            document.getElementById('dash-progress-text').innerText = `${pct}%`;
+            
+            const circle = document.getElementById('dash-progress-circle');
+            const circumference = 2 * Math.PI * 26;
+            const offset = circumference - (pct / 100) * circumference;
+            circle.style.strokeDashoffset = offset;
+
+            // Urgent high priority tasks list
+            const urgentList = document.getElementById('urgent-tasks-list');
+            const urgentTasks = state.tasks.filter(t => !t.completed && t.priority === 'Cao').slice(0, 3);
+            
+            if (urgentTasks.length === 0) {
+                urgentList.innerHTML = `<p class="text-xs text-slate-500 italic py-2">Không có việc gấp ưu tiên cao nào.</p>`;
+            } else {
+                urgentList.innerHTML = urgentTasks.map(t => `
+                    <div onclick="editTask('${t.id}')" class="glass-panel p-3 rounded-2xl flex items-center justify-between border-l-4 border-l-rose-500 active:scale-98 transition">
+                        <div>
+                            <h4 class="text-xs font-bold text-white">${t.title}</h4>
+                            <p class="text-[10px] text-slate-400">${t.category} • ${t.dueDate ? new Date(t.dueDate).toLocaleString('vi-VN') : 'Không hạn'}</p>
+                        </div>
+                        <button onclick="event.stopPropagation(); toggleTaskComplete('${t.id}')" class="w-7 h-7 rounded-full border border-rose-400/40 flex items-center justify-center text-slate-400 hover:text-emerald-400">
+                            <i class="fa-solid fa-check text-xs"></i>
                         </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                    </div>
+                `).join('');
+            }
+        }
 
-              {/* Form Buttons */}
-              <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-100 dark:border-slate-700/60">
-                {initialData && (
-                  <button
-                    type="button"
-                    onClick={() => onExportICS(initialData, reminderOffset)}
-                    className="py-2.5 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-1.5"
-                    title="Tải tệp .ics vào Lịch"
-                  >
-                    <i className="fas fa-calendar-plus text-sm"></i> Xuất .ics
-                  </button>
-                )}
+        function renderTasks() {
+            const listEl = document.getElementById('tasks-list');
+            const nowIso = new Date().toISOString();
+            const todayStr = nowIso.split('T')[0];
 
-                <div className="flex items-center gap-3 ml-auto">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-medium text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    type="submit"
-                    className="py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm shadow-md shadow-blue-500/20 transition-all hover:scale-105"
-                  >
-                    {initialData ? 'Cập nhật' : 'Tạo mới'}
-                  </button>
-                </div>
-              </div>
+            let filtered = state.tasks.filter(t => {
+                // Status Filter
+                if (state.filterStatus === 'today' && (!t.dueDate || !t.dueDate.startsWith(todayStr))) return false;
+                if (state.filterStatus === 'upcoming' && (!t.dueDate || t.dueDate <= nowIso)) return false;
+                if (state.filterStatus === 'overdue' && (t.completed || !t.dueDate || t.dueDate >= nowIso)) return false;
+                if (state.filterStatus === 'completed' && !t.completed) return false;
 
-            </form>
-          </div>
-        </div>
-      );
-    }
+                // Category Filter
+                if (state.filterCategory !== 'all' && t.category !== state.filterCategory) return false;
 
-    // Render App
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
-  </script>
+                // Search Query
+                if (state.searchQuery && !t.title.toLowerCase().includes(state.searchQuery.toLowerCase())) return false;
+
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                listEl.innerHTML = `
+                    <div class="text-center py-12 glass-panel rounded-3xl space-y-2">
+                        <i class="fa-solid fa-clipboard-check text-3xl text-slate-600"></i>
+                        <p class="text-xs font-semibold text-slate-400">Không tìm thấy công việc nào!</p>
+                        <button onclick="openBottomSheet()" class="px-3 py-1.5 rounded-xl bg-indigo-600/30 text-indigo-300 text-xs font-bold">Thêm việc mới</button>
+                    </div>
+                `;
+                return;
+            }
+
+            listEl.innerHTML = filtered.map(t => {
+                const priorityColors = {
+                    'Cao': 'border-l-rose-500 text-rose-400 bg-rose-500/10',
+                    'Trung bình': 'border-l-amber-500 text-amber-400 bg-amber-500/10',
+                    'Thấp': 'border-l-emerald-500 text-emerald-400 bg-emerald-500/10'
+                };
+                const categoryIcons = {
+                    'Công việc': '💼', 'Cá nhân': '👤', 'Học tập': '🎓', 'Gia đình': '🏠', 'Khác': '📌'
+                };
+
+                const subtaskCount = t.subtasks ? t.subtasks.length : 0;
+                const completedSubtasks = t.subtasks ? t.subtasks.filter(s => s.completed).length : 0;
+
+                return `
+                    <div id="task-card-${t.id}" class="task-card glass-panel p-3.5 rounded-2xl border-l-4 ${priorityColors[t.priority] || 'border-l-indigo-500'} space-y-2 relative overflow-hidden shadow-lg">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-start gap-3 flex-1" onclick="editTask('${t.id}')">
+                                <button onclick="event.stopPropagation(); toggleTaskComplete('${t.id}')" class="mt-0.5 w-5 h-5 rounded-lg border-2 ${t.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-500'} flex items-center justify-center transition">
+                                    ${t.completed ? '<i class="fa-solid fa-check text-[10px]"></i>' : ''}
+                                </button>
+                                <div>
+                                    <h4 class="text-xs font-bold ${t.completed ? 'line-through text-slate-500' : 'text-white light:text-slate-900'}">${t.title}</h4>
+                                    <div class="flex flex-wrap items-center gap-2 mt-1">
+                                        <span class="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-semibold">${categoryIcons[t.category] || '📌'} ${t.category}</span>
+                                        ${t.dueDate ? `<span class="text-[10px] text-slate-400"><i class="fa-regular fa-clock mr-1"></i>${new Date(t.dueDate).toLocaleString('vi-VN', {month: 'numeric', day: 'numeric', hour: '2-digit', minute:'2-digit'})}</span>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Quick Action Buttons -->
+                            <div class="flex items-center gap-1">
+                                <button onclick="downloadTaskICS('${t.id}')" class="w-7 h-7 rounded-lg glass-panel text-indigo-400 hover:bg-indigo-600/30 flex items-center justify-center text-xs" title="Tải Lịch .ics">
+                                    <i class="fa-solid fa-calendar-plus"></i>
+                                </button>
+                                <button onclick="deleteTaskConfirm('${t.id}')" class="w-7 h-7 rounded-lg glass-panel text-rose-400 hover:bg-rose-600/30 flex items-center justify-center text-xs">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        ${subtaskCount > 0 ? `
+                            <div class="pt-1.5 border-t border-slate-700/40 flex items-center justify-between text-[10px] text-slate-400">
+                                <span><i class="fa-solid fa-bars-staggered mr-1"></i> Tiến độ subtask: ${completedSubtasks}/${subtaskCount}</span>
+                                <div class="w-20 bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                    <div class="bg-indigo-500 h-full" style="width: ${(completedSubtasks / subtaskCount) * 100}%"></div>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            // Attach touch swipe gesture listeners to newly rendered cards
+            filtered.forEach(t => {
+                const el = document.getElementById(`task-card-${t.id}`);
+                if (el) makeTaskCardSwipeable(el, t.id);
+            });
+        }
+
+        /* ==========================================================================
+           8. TASK OPERATIONS (Add, Edit, Delete, Toggle Complete)
+           ========================================================================== */
+        async function toggleTaskComplete(id) {
+            const task = state.tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = !task.completed;
+                if (task.completed) {
+                    playSoundEffect('complete');
+                    showToast("Đã hoàn thành công việc!");
+                } else {
+                    playSoundEffect('click');
+                }
+                await saveTaskToIDB(task);
+                syncTaskToCloud(task);
+                renderAll();
+            }
+        }
+
+        async function deleteTaskConfirm(id) {
+            state.tasks = state.tasks.filter(t => t.id !== id);
+            playSoundEffect('delete');
+            await deleteTaskFromIDB(id);
+            deleteTaskFromCloud(id);
+            showToast("Đã xóa công việc!");
+            renderAll();
+        }
+
+        function handleTaskSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('task-id').value || 'task-' + Date.now();
+            const title = document.getElementById('task-title-input').value.trim();
+            const category = document.getElementById('task-category-input').value;
+            const priority = document.getElementById('task-priority-input').value;
+            const dueDate = document.getElementById('task-due-input').value;
+            const alarmLead = document.getElementById('task-alarm-lead').value;
+            const notes = document.getElementById('task-notes-input').value.trim();
+
+            // Collect subtasks
+            const subtaskInputs = document.querySelectorAll('.subtask-item-input');
+            const subtasks = Array.from(subtaskInputs).map(inp => ({
+                text: inp.value.trim(),
+                completed: false
+            })).filter(s => s.text !== '');
+
+            const taskObj = {
+                id,
+                title,
+                category,
+                priority,
+                dueDate,
+                alarmLead,
+                notes,
+                subtasks,
+                completed: false,
+                updatedAt: new Date().toISOString()
+            };
+
+            const existingIdx = state.tasks.findIndex(t => t.id === id);
+            if (existingIdx >= 0) {
+                taskObj.completed = state.tasks[existingIdx].completed;
+                state.tasks[existingIdx] = taskObj;
+            } else {
+                state.tasks.unshift(taskObj);
+            }
+
+            saveTaskToIDB(taskObj);
+            syncTaskToCloud(taskObj);
+            
+            // Check Telegram automatic reminder alert
+            if (dueDate && state.tgBotToken) {
+                sendTelegramMessage(`⚡ <b>Công việc mới vừa tạo:</b> ${title}\n⏰ <b>Hạn:</b> ${new Date(dueDate).toLocaleString('vi-VN')}`);
+            }
+
+            closeBottomSheet();
+            renderAll();
+            playSoundEffect('click');
+            showToast(existingIdx >= 0 ? "Đã cập nhật công việc!" : "Đã tạo công việc mới!");
+        }
+
+        function editTask(id) {
+            const task = state.tasks.find(t => t.id === id);
+            if (!task) return;
+
+            document.getElementById('task-id').value = task.id;
+            document.getElementById('task-title-input').value = task.title;
+            document.getElementById('task-category-input').value = task.category;
+            document.getElementById('task-priority-input').value = task.priority;
+            document.getElementById('task-due-input').value = task.dueDate || '';
+            document.getElementById('task-alarm-lead').value = task.alarmLead || '15';
+            document.getElementById('task-notes-input').value = task.notes || '';
+
+            // Render subtasks inputs
+            const subContainer = document.getElementById('subtasks-input-container');
+            subContainer.innerHTML = '';
+            if (task.subtasks) {
+                task.subtasks.forEach(s => addSubtaskInputLine(s.text));
+            }
+
+            document.getElementById('sheet-title').innerText = "Chỉnh sửa công việc";
+            openBottomSheet();
+        }
+
+        function addSubtaskInputLine(value = '') {
+            const container = document.getElementById('subtasks-input-container');
+            const div = document.createElement('div');
+            div.className = "flex items-center gap-2";
+            div.innerHTML = `
+                <input type="text" value="${value}" placeholder="Nhập tên bước..." class="subtask-item-input flex-1 bg-slate-800/80 light:bg-slate-100 border border-slate-700 text-xs px-3 py-1.5 rounded-lg text-white light:text-slate-900 focus:outline-none focus:border-indigo-500">
+                <button type="button" onclick="this.parentElement.remove()" class="text-slate-500 hover:text-rose-400 px-1 text-xs">
+                    <i class="fa-solid fa-minus-circle"></i>
+                </button>
+            `;
+            container.appendChild(div);
+        }
+
+        /* ==========================================================================
+           9. BOTTOM SHEET CONTROLLER
+           ========================================================================== */
+        function openBottomSheet() {
+            const sheet = document.getElementById('bottom-sheet');
+            const backdrop = document.getElementById('bottom-sheet-backdrop');
+            backdrop.classList.remove('hidden');
+            setTimeout(() => {
+                backdrop.classList.remove('opacity-0');
+                sheet.classList.remove('closed');
+            }, 10);
+        }
+
+        function closeBottomSheet() {
+            const sheet = document.getElementById('bottom-sheet');
+            const backdrop = document.getElementById('bottom-sheet-backdrop');
+            sheet.classList.add('closed');
+            backdrop.classList.add('opacity-0');
+            setTimeout(() => {
+                backdrop.classList.add('hidden');
+                document.getElementById('task-form').reset();
+                document.getElementById('task-id').value = '';
+                document.getElementById('subtasks-input-container').innerHTML = '';
+                document.getElementById('sheet-title').innerText = "Tạo công việc mới";
+            }, 300);
+        }
+
+        /* ==========================================================================
+           10. POMODORO TIMER & CALENDAR TAB LOGIC
+           ========================================================================== */
+        let pomoInterval = null;
+        let pomoTimeLeft = 25 * 60;
+        let pomoTotalTime = 25 * 60;
+        let isPomoRunning = false;
+
+        function setPomodoroMode(mins) {
+            resetPomodoro();
+            pomoTotalTime = mins * 60;
+            pomoTimeLeft = mins * 60;
+            document.getElementById('pomo-mode-25').className = mins === 25 ? "px-2 py-0.5 text-[10px] rounded-full font-bold bg-indigo-600 text-white" : "px-2 py-0.5 text-[10px] rounded-full text-slate-400";
+            document.getElementById('pomo-mode-5').className = mins === 5 ? "px-2 py-0.5 text-[10px] rounded-full font-bold bg-purple-600 text-white" : "px-2 py-0.5 text-[10px] rounded-full text-slate-400";
+            updatePomodoroDisplay();
+        }
+
+        function togglePomodoro() {
+            if (isPomoRunning) {
+                clearInterval(pomoInterval);
+                isPomoRunning = false;
+                document.getElementById('pomo-play-icon').className = "fa-solid fa-play ml-1";
+            } else {
+                isPomoRunning = true;
+                document.getElementById('pomo-play-icon').className = "fa-solid fa-pause";
+                pomoInterval = setInterval(() => {
+                    if (pomoTimeLeft > 0) {
+                        pomoTimeLeft--;
+                        updatePomodoroDisplay();
+                    } else {
+                        clearInterval(pomoInterval);
+                        isPomoRunning = false;
+                        playSoundEffect('alarm');
+                        showToast("Hết giờ tập trung Pomodoro!");
+                        document.getElementById('pomo-play-icon').className = "fa-solid fa-play ml-1";
+                    }
+                }, 1000);
+            }
+        }
+
+        function resetPomodoro() {
+            clearInterval(pomoInterval);
+            isPomoRunning = false;
+            pomoTimeLeft = pomoTotalTime;
+            document.getElementById('pomo-play-icon').className = "fa-solid fa-play ml-1";
+            updatePomodoroDisplay();
+        }
+
+        function updatePomodoroDisplay() {
+            const mins = Math.floor(pomoTimeLeft / 60);
+            const secs = pomoTimeLeft % 60;
+            document.getElementById('pomo-display').innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            
+            const circle = document.getElementById('pomo-circle');
+            const circumference = 2 * Math.PI * 76;
+            const offset = circumference - (pomoTimeLeft / pomoTotalTime) * circumference;
+            circle.style.strokeDashoffset = offset;
+        }
+
+        function renderCalendarTab() {
+            const container = document.getElementById('calendar-days-strip');
+            container.innerHTML = '';
+            
+            const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+            const today = new Date();
+
+            for (let i = -3; i <= 3; i++) {
+                const d = new Date(today);
+                d.setDate(today.getDate() + i);
+                const isoDate = d.toISOString().split('T')[0];
+                const isSelected = isoDate === state.selectedDate;
+
+                const btn = document.createElement('button');
+                btn.className = `flex-1 py-2 px-1 rounded-2xl flex flex-col items-center justify-center text-xs transition ${isSelected ? 'bg-gradient-to-b from-indigo-600 to-purple-600 text-white shadow-glow-indigo font-bold scale-105' : 'glass-panel text-slate-400'}`;
+                btn.innerHTML = `
+                    <span class="text-[10px] opacity-80">${days[d.getDay()]}</span>
+                    <span class="font-bold text-sm mt-0.5">${d.getDate()}</span>
+                `;
+                btn.onclick = () => {
+                    state.selectedDate = isoDate;
+                    document.getElementById('selected-date-label').innerText = isoDate === today.toISOString().split('T')[0] ? 'Hôm nay' : isoDate;
+                    renderCalendarTab();
+                };
+                container.appendChild(btn);
+            }
+
+            // Tasks for selected date
+            const dateTasks = state.tasks.filter(t => t.dueDate && t.dueDate.startsWith(state.selectedDate));
+            const listEl = document.getElementById('calendar-date-tasks');
+            if (dateTasks.length === 0) {
+                listEl.innerHTML = `<p class="text-xs text-slate-500 italic text-center py-2">Không có lịch trình cho ngày này.</p>`;
+            } else {
+                listEl.innerHTML = dateTasks.map(t => `
+                    <div class="glass-panel p-2.5 rounded-xl flex items-center justify-between text-xs">
+                        <span class="font-semibold text-white">${t.title}</span>
+                        <span class="text-[10px] text-indigo-400">${new Date(t.dueDate).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        /* ==========================================================================
+           11. STORAGE & BACKUP MANAGEMENT
+           ========================================================================== */
+        async function updateStorageStats() {
+            if ('storage' in navigator && 'estimate' in navigator.storage) {
+                const est = await navigator.storage.estimate();
+                const usedMB = (est.usage / (1024 * 1024)).toFixed(2);
+                document.getElementById('idb-storage-text').innerText = `${usedMB} MB (${state.tasks.length} việc)`;
+                const pct = Math.min(100, Math.max(2, Math.round((est.usage / est.quota) * 100)));
+                document.getElementById('storage-bar').style.width = `${pct}%`;
+            }
+        }
+
+        function exportJSONBackup() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state.tasks, null, 2));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", `TaskFlow_Backup_${new Date().toISOString().split('T')[0]}.json`);
+            document.body.appendChild(dlAnchor);
+            dlAnchor.click();
+            dlAnchor.remove();
+            showToast("Đã xuất tệp sao lưu JSON!");
+        }
+
+        function importJSONBackup(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async function(evt) {
+                try {
+                    const importedTasks = JSON.parse(evt.target.result);
+                    if (Array.isArray(importedTasks)) {
+                        for (let t of importedTasks) {
+                            await saveTaskToIDB(t);
+                            syncTaskToCloud(t);
+                        }
+                        state.tasks = await loadTasksFromIDB();
+                        renderAll();
+                        showToast(`Đã nhập thành công ${importedTasks.length} công việc!`);
+                    }
+                } catch (err) {
+                    showToast("Tệp JSON không hợp lệ!", true);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        async function confirmClearAllData() {
+            if (confirm("Bạn có chắc chắn muốn xóa toàn bộ dữ liệu ứng dụng? Thao tác này không thể hoàn tác!")) {
+                await clearAllIDBTasks();
+                state.tasks = [];
+                renderAll();
+                showToast("Đã xóa sạch toàn bộ dữ liệu!");
+            }
+        }
+
+        /* ==========================================================================
+           12. UTILITY HELPERS & INITIALIZATION
+           ========================================================================== */
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast-notification');
+            const toastMsg = document.getElementById('toast-message');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastMsg.innerText = msg;
+            toastIcon.className = isError ? "fa-solid fa-circle-exclamation text-rose-400" : "fa-solid fa-circle-check text-emerald-400";
+            
+            toast.classList.remove('-translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('-translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        function setFilter(status) {
+            state.filterStatus = status;
+            const buttons = ['all', 'today', 'upcoming', 'overdue', 'completed'];
+            buttons.forEach(b => {
+                const btn = document.getElementById(`filter-${b}`);
+                if (b === status) {
+                    btn.className = "px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition bg-indigo-600 text-white shadow-glow-blue";
+                } else {
+                    btn.className = "px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition glass-panel text-slate-300";
+                }
+            });
+            renderTasks();
+        }
+
+        function setCategoryFilter(cat) {
+            state.filterCategory = cat;
+            renderTasks();
+        }
+
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            document.documentElement.classList.toggle('light', !isDark);
+            document.getElementById('theme-icon').className = isDark ? "fa-solid fa-moon text-sm" : "fa-solid fa-sun text-sm text-amber-500";
+            playSoundEffect('click');
+        }
+
+        function toggleQuickSearch() {
+            const overlay = document.getElementById('search-overlay');
+            overlay.classList.toggle('hidden');
+            if (!overlay.classList.contains('hidden')) {
+                document.getElementById('global-search-input').focus();
+            }
+        }
+
+        // Initialize App on window ready
+        window.addEventListener('load', async () => {
+            // Display current date in Vietnamese
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('current-date-subtitle').innerText = new Date().toLocaleDateString('vi-VN', options);
+
+            // Populate settings inputs
+            document.getElementById('sync-room-input').value = state.syncRoomId;
+            document.getElementById('tg-bot-token').value = state.tgBotToken;
+            document.getElementById('tg-chat-id').value = state.tgChatId;
+
+            // Load IndexedDB tasks
+            try {
+                state.tasks = await loadTasksFromIDB();
+            } catch (e) {
+                console.warn("Falling back to local state");
+            }
+
+            // Init Touch Swipe & Cloud Sync
+            initSwipeGestures();
+            initFirebaseSync();
+            renderAll();
+        });
+    </script>
 </body>
 </html>
