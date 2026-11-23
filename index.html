@@ -2,70 +2,66 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>TaskFlow Việt - Quản Lý Công Việc Cá Nhân</title>
   <style>
     /* ==========================================================================
-       1. CSS VARIABLES & LIQUID GLASS THEME SETUP
+       CSS VARIABLES & LIQUID GLASS THEMING
        ========================================================================== */
     :root {
-      --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       
-      /* Light Mode Colors */
-      --bg-gradient: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
-      --glass-bg: rgba(255, 255, 255, 0.55);
-      --glass-bg-hover: rgba(255, 255, 255, 0.7);
-      --glass-border: rgba(255, 255, 255, 0.6);
-      --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.12);
-      --glass-card: rgba(255, 255, 255, 0.45);
-      --glass-card-border: rgba(255, 255, 255, 0.7);
+      /* Dark Theme (Default) */
+      --bg-gradient: radial-gradient(circle at 20% 20%, #1e1b4b 0%, #0f172a 40%, #020617 100%);
+      --glass-bg: rgba(30, 41, 59, 0.65);
+      --glass-bg-hover: rgba(51, 65, 85, 0.75);
+      --glass-border: rgba(255, 255, 255, 0.12);
+      --glass-border-active: rgba(99, 102, 241, 0.5);
+      --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
       
-      --text-main: #1d1d1f;
-      --text-muted: #6e6e73;
-      --text-light: #86868b;
-      
-      --accent-primary: #0071e3;
-      --accent-primary-hover: #0077ed;
-      --accent-success: #34c759;
-      --accent-warning: #ff9500;
-      --accent-danger: #ff3b30;
-      --accent-purple: #af52de;
-      
-      --input-bg: rgba(255, 255, 255, 0.6);
-      --input-border: rgba(209, 209, 214, 0.5);
-      
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+
+      --accent-primary: #6366f1;
+      --accent-primary-hover: #4f46e5;
+      --accent-glow: rgba(99, 102, 241, 0.35);
+
+      --color-todo: #38bdf8;
+      --color-doing: #f59e0b;
+      --color-done: #10b981;
+      --color-urgent: #ef4444;
+
+      --sidebar-width: 250px;
+      --header-height: 64px;
+      --bottom-nav-height: 68px;
+
       --radius-sm: 10px;
       --radius-md: 16px;
       --radius-lg: 24px;
-      --radius-full: 9999px;
+      --radius-pill: 9999px;
 
-      --sidebar-width: 260px;
-      --bottom-nav-height: 70px;
-      --header-height: 64px;
-      --transition-speed: 0.3s;
+      --transition-fast: 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      --transition-smooth: 0.35s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    /* Dark Mode Theme Overrides */
-    [data-theme="dark"] {
-      --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0284c7 100%);
-      --glass-bg: rgba(15, 23, 42, 0.65);
-      --glass-bg-hover: rgba(30, 41, 59, 0.8);
-      --glass-border: rgba(255, 255, 255, 0.12);
-      --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
-      --glass-card: rgba(30, 41, 59, 0.5);
-      --glass-card-border: rgba(255, 255, 255, 0.15);
-      
-      --text-main: #f8fafc;
-      --text-muted: #cbd5e1;
-      --text-light: #94a3b8;
-      
-      --input-bg: rgba(15, 23, 42, 0.6);
-      --input-border: rgba(255, 255, 255, 0.15);
+    [data-theme="light"] {
+      --bg-gradient: radial-gradient(circle at 10% 10%, #e0e7ff 0%, #f1f5f9 50%, #e2e8f0 100%);
+      --glass-bg: rgba(255, 255, 255, 0.68);
+      --glass-bg-hover: rgba(255, 255, 255, 0.85);
+      --glass-border: rgba(255, 255, 255, 0.5);
+      --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.12);
+
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --text-dim: #94a3b8;
+
+      --accent-primary: #4f46e5;
+      --accent-primary-hover: #4338ca;
+      --accent-glow: rgba(79, 70, 229, 0.25);
     }
 
-    /* ==========================================================================
-       2. RESET & BASE STYLES
-       ========================================================================== */
+    /* Reset & Base Styles */
     * {
       box-sizing: border-box;
       margin: 0;
@@ -82,198 +78,115 @@
       background-attachment: fixed;
       color: var(--text-main);
       overflow: hidden;
-      font-size: 15px;
-      line-height: 1.5;
     }
 
-    input, textarea, select, button {
-      font-family: inherit;
-      font-size: inherit;
-      outline: none;
-      user-select: text;
-    }
-
-    button {
-      cursor: pointer;
-      border: none;
-      background: none;
-    }
-
-    /* Scrollbar Styling */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: rgba(150, 150, 150, 0.3);
-      border-radius: var(--radius-full);
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: rgba(150, 150, 150, 0.5);
-    }
-
-    /* Liquid Glass Container */
-    .glass-panel {
-      background: var(--glass-bg);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid var(--glass-border);
-      box-shadow: var(--glass-shadow);
-      border-radius: var(--radius-md);
-    }
-
-    .glass-card {
-      background: var(--glass-card);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid var(--glass-card-border);
-      border-radius: var(--radius-md);
-      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-    }
-    .glass-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
-      background: var(--glass-bg-hover);
-    }
-
-    /* App Outer Shell */
+    /* Layout Structure */
     #app {
       display: flex;
       width: 100vw;
       height: 100vh;
-      height: -webkit-fill-available;
-      position: relative;
       overflow: hidden;
+      position: relative;
+    }
+
+    /* Glass Panels Utility */
+    .liquid-glass {
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--glass-shadow);
     }
 
     /* ==========================================================================
-       3. NAVIGATION BAR (DESKTOP SIDEBAR & MOBILE BOTTOM NAV)
+       SIDEBAR (Desktop >= 768px)
        ========================================================================== */
-    /* Desktop Sidebar */
     .sidebar {
+      display: none;
       width: var(--sidebar-width);
       height: 100%;
-      padding: 24px 16px;
-      display: flex;
       flex-direction: column;
       justify-content: space-between;
-      border-radius: 0;
-      border-right: 1px solid var(--glass-border);
+      padding: 24px 16px;
       z-index: 20;
     }
 
-    .brand {
+    .brand-header {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 0 12px 24px 12px;
-      border-bottom: 1px solid rgba(150, 150, 150, 0.15);
+      padding: 0 8px 24px 8px;
     }
-    .brand-icon {
+
+    .brand-logo {
       width: 38px;
       height: 38px;
-      background: linear-gradient(135deg, #0071e3, #af52de);
-      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent-primary), #ec4899);
+      border-radius: var(--radius-md);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #fff;
-      box-shadow: 0 4px 12px rgba(0, 113, 227, 0.3);
+      color: white;
+      box-shadow: 0 4px 15px var(--accent-glow);
     }
+
     .brand-title {
-      font-size: 1.25rem;
+      font-size: 1.2rem;
       font-weight: 700;
       letter-spacing: -0.5px;
-      background: linear-gradient(135deg, var(--text-main), var(--accent-primary));
+      background: linear-gradient(135deg, #a5b4fc, #f472b6);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
 
-    .nav-list {
-      list-style: none;
-      margin-top: 24px;
+    .nav-menu {
       display: flex;
       flex-direction: column;
       gap: 8px;
+      flex: 1;
     }
 
-    .nav-item button {
-      width: 100%;
+    .nav-btn {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
       padding: 12px 16px;
-      border-radius: var(--radius-sm);
+      border-radius: var(--radius-md);
       color: var(--text-muted);
-      font-weight: 500;
-      transition: all 0.2s ease;
+      background: transparent;
+      border: none;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition-fast);
+      text-align: left;
     }
-    .nav-item button:hover {
-      background: rgba(255, 255, 255, 0.25);
+
+    .nav-btn:hover {
+      background: var(--glass-bg-hover);
       color: var(--text-main);
     }
-    .nav-item.active button {
+
+    .nav-btn.active {
       background: var(--accent-primary);
-      color: #ffffff;
-      box-shadow: 0 4px 14px rgba(0, 113, 227, 0.35);
+      color: white;
+      box-shadow: 0 4px 20px var(--accent-glow);
     }
-    .nav-item button svg {
-      width: 22px;
-      height: 22px;
+
+    .nav-btn svg {
+      width: 20px;
+      height: 20px;
+      fill: none;
+      stroke: currentColor;
       stroke-width: 2;
-    }
-
-    .sidebar-footer {
-      padding-top: 16px;
-      border-top: 1px solid rgba(150, 150, 150, 0.15);
-    }
-
-    /* Mobile Bottom Navigation Bar */
-    .mobile-bottom-nav {
-      display: none;
-      position: fixed;
-      bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-      left: 12px;
-      right: 12px;
-      height: var(--bottom-nav-height);
-      z-index: 100;
-      border-radius: var(--radius-full);
-      padding: 0 8px;
-      align-items: center;
-      justify-content: space-around;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-    }
-    .mobile-bottom-nav .nav-btn {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 3px;
-      height: 100%;
-      color: var(--text-muted);
-      font-size: 11px;
-      font-weight: 500;
-      border-radius: var(--radius-full);
-      transition: all 0.2s ease;
-    }
-    .mobile-bottom-nav .nav-btn svg {
-      width: 22px;
-      height: 22px;
-    }
-    .mobile-bottom-nav .nav-btn.active {
-      color: var(--accent-primary);
-      font-weight: 700;
-      background: rgba(0, 113, 227, 0.12);
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
     /* ==========================================================================
-       4. MAIN CONTENT CONTAINER & HEADER
+       MAIN WORKSPACE
        ========================================================================== */
-    .main-wrapper {
+    .main-workspace {
       flex: 1;
       display: flex;
       flex-direction: column;
@@ -282,252 +195,217 @@
       position: relative;
     }
 
+    /* Header Bar */
     .top-header {
       height: var(--header-height);
       padding: 0 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid rgba(150, 150, 150, 0.12);
-      backdrop-filter: blur(15px);
-      -webkit-backdrop-filter: blur(15px);
-      z-index: 10;
+      border-bottom: 1px solid var(--glass-border);
+      z-index: 15;
     }
 
-    .header-greeting {
-      display: flex;
-      flex-direction: column;
-    }
-    .greeting-title {
-      font-size: 1.15rem;
+    .header-title {
+      font-size: 1.25rem;
       font-weight: 700;
-      line-height: 1.2;
-    }
-    .greeting-date {
-      font-size: 0.8rem;
-      color: var(--text-muted);
     }
 
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .btn-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: var(--radius-full);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(255, 255, 255, 0.3);
-      color: var(--text-main);
-      border: 1px solid var(--glass-border);
-      transition: all 0.2s;
-    }
-    .btn-icon:hover {
-      background: rgba(255, 255, 255, 0.6);
-      transform: scale(1.05);
-    }
-    .btn-icon svg {
-      width: 20px;
-      height: 20px;
-    }
-
-    .btn-primary {
-      background: var(--accent-primary);
-      color: #fff;
-      padding: 10px 18px;
-      border-radius: var(--radius-full);
-      font-weight: 600;
+    /* Sync Badge */
+    .sync-badge {
       display: flex;
       align-items: center;
       gap: 8px;
-      box-shadow: 0 4px 14px rgba(0, 113, 227, 0.3);
-      transition: all 0.2s ease;
-    }
-    .btn-primary:hover {
-      background: var(--accent-primary-hover);
-      transform: translateY(-1px);
-      box-shadow: 0 6px 18px rgba(0, 113, 227, 0.4);
-    }
-    .btn-primary svg {
-      width: 18px;
-      height: 18px;
+      padding: 6px 14px;
+      border-radius: var(--radius-pill);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition-fast);
     }
 
-    /* Content Area & Tabs View */
+    .sync-badge .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .sync-status-synced {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #10b981;
+    }
+    .sync-status-synced .dot { background: #10b981; }
+
+    .sync-status-syncing {
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: #3b82f6;
+    }
+    .sync-status-syncing .dot {
+      background: #3b82f6;
+      animation: pulseDot 1s infinite alternate;
+    }
+
+    .sync-status-offline {
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: #f59e0b;
+    }
+    .sync-status-offline .dot { background: #f59e0b; }
+
+    .sync-status-error {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #ef4444;
+    }
+    .sync-status-error .dot { background: #ef4444; }
+
+    @keyframes pulseDot {
+      0% { opacity: 0.4; transform: scale(0.8); }
+      100% { opacity: 1; transform: scale(1.2); }
+    }
+
+    /* Content Area */
     .content-area {
       flex: 1;
       overflow-y: auto;
       padding: 24px;
+      padding-bottom: 90px; /* Space for mobile nav */
       position: relative;
       touch-action: pan-y;
     }
 
     .tab-view {
       display: none;
-      animation: fadeIn 0.35s ease forwards;
+      animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .tab-view.active {
       display: block;
     }
 
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px); }
+      from { opacity: 0; transform: translateY(8px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
     /* ==========================================================================
-       5. TAB 1: TỔNG QUAN (DASHBOARD)
+       DASHBOARD TAB
        ========================================================================== */
-    .dashboard-grid {
+    .stats-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       gap: 16px;
       margin-bottom: 24px;
     }
 
     .stat-card {
-      padding: 18px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-    .stat-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #ffffff;
-      flex-shrink: 0;
-    }
-    .stat-info {
+      padding: 16px;
+      border-radius: var(--radius-md);
       display: flex;
       flex-direction: column;
+      gap: 8px;
     }
-    .stat-value {
-      font-size: 1.6rem;
-      font-weight: 800;
-      line-height: 1;
-      margin-bottom: 4px;
-    }
-    .stat-label {
-      font-size: 0.82rem;
+
+    .stat-card .label {
+      font-size: 0.8rem;
       color: var(--text-muted);
       font-weight: 500;
     }
-
-    .dashboard-middle {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      margin-bottom: 24px;
+    .stat-card .value {
+      font-size: 1.8rem;
+      font-weight: 800;
     }
 
-    .widget-panel {
-      padding: 20px;
+    .dashboard-overview {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+    @media (min-width: 900px) {
+      .dashboard-overview {
+        grid-template-columns: 320px 1fr;
+      }
+    }
+
+    .progress-ring-card {
+      padding: 24px;
+      border-radius: var(--radius-lg);
       display: flex;
       flex-direction: column;
-      gap: 16px;
-    }
-    .widget-title {
-      font-size: 1.05rem;
-      font-weight: 700;
-      display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
+      text-align: center;
     }
 
-    /* SVG Progress Ring */
-    .progress-ring-container {
-      display: flex;
-      align-items: center;
-      justify-content: space-around;
-      padding: 12px 0;
-    }
-    .ring-wrapper {
+    .ring-container {
       position: relative;
       width: 140px;
       height: 140px;
+      margin: 16px 0;
     }
-    .ring-wrapper svg {
+    .ring-container svg {
+      width: 140px;
+      height: 140px;
       transform: rotate(-90deg);
     }
-    .ring-circle-bg {
-      fill: none;
-      stroke: rgba(150, 150, 150, 0.15);
+    .ring-bg {
+      stroke: var(--glass-border);
       stroke-width: 12;
-    }
-    .ring-circle-val {
       fill: none;
+    }
+    .ring-progress {
       stroke: var(--accent-primary);
       stroke-width: 12;
+      fill: none;
       stroke-linecap: round;
-      stroke-dasharray: 364;
-      stroke-dashoffset: 364;
+      stroke-dasharray: 377;
+      stroke-dashoffset: 377;
       transition: stroke-dashoffset 0.8s ease;
     }
-    .ring-center-text {
+    .ring-text {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      text-align: center;
-    }
-    .ring-percent {
-      font-size: 1.6rem;
+      font-size: 1.5rem;
       font-weight: 800;
     }
-    .ring-subtext {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-    }
 
-    /* Category breakdown bars */
-    .cat-bar-list {
+    .category-bars {
       display: flex;
       flex-direction: column;
       gap: 12px;
+      margin-top: 16px;
     }
     .cat-bar-item {
       display: flex;
       flex-direction: column;
       gap: 4px;
     }
-    .cat-bar-header {
+    .cat-bar-info {
       display: flex;
       justify-content: space-between;
       font-size: 0.85rem;
-      font-weight: 600;
     }
     .cat-bar-track {
       height: 8px;
-      width: 100%;
-      background: rgba(150, 150, 150, 0.15);
-      border-radius: var(--radius-full);
+      background: var(--glass-border);
+      border-radius: var(--radius-pill);
       overflow: hidden;
     }
     .cat-bar-fill {
       height: 100%;
-      border-radius: var(--radius-full);
-      transition: width 0.5s ease;
-    }
-
-    /* Today's Tasks Quick List */
-    .quick-tasks-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+      background: var(--accent-primary);
+      border-radius: var(--radius-pill);
+      width: 0%;
+      transition: width 0.6s ease;
     }
 
     /* ==========================================================================
-       6. TAB 2: CÔNG VIỆC (TASKS - LIST & KANBAN)
+       TASKS TAB & KANBAN
        ========================================================================== */
-    .tasks-toolbar {
+    .controls-bar {
       display: flex;
       flex-wrap: wrap;
       gap: 12px;
@@ -537,18 +415,19 @@
     }
 
     .search-box {
-      flex: 1;
-      min-width: 220px;
       position: relative;
+      flex: 1;
+      min-width: 200px;
     }
     .search-box input {
       width: 100%;
-      padding: 10px 14px 10px 40px;
-      border-radius: var(--radius-full);
-      border: 1px solid var(--input-bg);
-      background: var(--input-bg);
+      padding: 10px 16px 10px 40px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--glass-border);
+      background: var(--glass-bg);
       color: var(--text-main);
-      backdrop-filter: blur(10px);
+      font-size: 0.9rem;
+      outline: none;
     }
     .search-box svg {
       position: absolute;
@@ -557,75 +436,151 @@
       transform: translateY(-50%);
       width: 18px;
       height: 18px;
-      color: var(--text-muted);
+      stroke: var(--text-muted);
     }
 
-    .filter-chips {
+    .filters-group {
       display: flex;
       gap: 8px;
       overflow-x: auto;
       padding-bottom: 4px;
     }
-    .chip {
-      padding: 8px 14px;
-      border-radius: var(--radius-full);
-      font-size: 0.82rem;
-      font-weight: 600;
-      white-space: nowrap;
-      background: rgba(255, 255, 255, 0.3);
-      color: var(--text-muted);
+
+    .filter-btn {
+      padding: 8px 16px;
+      border-radius: var(--radius-pill);
       border: 1px solid var(--glass-border);
-      transition: all 0.2s ease;
+      background: var(--glass-bg);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: var(--transition-fast);
     }
-    .chip:hover, .chip.active {
+    .filter-btn.active {
       background: var(--accent-primary);
-      color: #fff;
+      color: white;
       border-color: var(--accent-primary);
     }
 
     .view-toggle {
       display: flex;
-      background: rgba(150, 150, 150, 0.15);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-pill);
       padding: 3px;
-      border-radius: var(--radius-full);
     }
-    .view-toggle button {
+    .view-btn {
       padding: 6px 12px;
-      border-radius: var(--radius-full);
-      font-size: 0.82rem;
-      font-weight: 600;
+      border-radius: var(--radius-pill);
+      border: none;
+      background: transparent;
       color: var(--text-muted);
+      cursor: pointer;
       display: flex;
       align-items: center;
       gap: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
     }
-    .view-toggle button.active {
-      background: var(--glass-bg-hover);
-      color: var(--text-main);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    .view-btn.active {
+      background: var(--accent-primary);
+      color: white;
     }
 
-    /* Task Items & Cards */
-    .task-list {
+    /* Add Floating Action Button */
+    .fab-btn {
+      position: fixed;
+      bottom: 84px;
+      right: 20px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent-primary), #ec4899);
+      color: white;
+      border: none;
+      box-shadow: 0 8px 25px var(--accent-glow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 30;
+      transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .fab-btn:active {
+      transform: scale(0.9);
+    }
+    @media (min-width: 768px) {
+      .fab-btn {
+        bottom: 30px;
+        right: 30px;
+      }
+    }
+
+    /* List & Board Views */
+    .tasks-container {
       display: flex;
       flex-direction: column;
       gap: 12px;
     }
 
-    .task-item {
+    .kanban-board {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      align-items: start;
+    }
+
+    .kanban-col {
+      border-radius: var(--radius-lg);
       padding: 16px;
+      min-height: 350px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .kanban-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
+      font-size: 0.95rem;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--glass-border);
+    }
+    .kanban-count {
+      background: var(--glass-border);
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+      font-size: 0.75rem;
+    }
+
+    /* Task Card Item */
+    .task-card {
+      padding: 14px 16px;
+      border-radius: var(--radius-md);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+      touch-action: pan-x;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      cursor: pointer;
+    }
+    .task-card:hover {
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    }
+
+    .task-header-row {
       display: flex;
       align-items: flex-start;
-      gap: 14px;
-      position: relative;
-    }
-    .task-item.completed {
-      opacity: 0.65;
+      gap: 10px;
     }
 
     .checkbox-custom {
-      width: 22px;
-      height: 22px;
+      width: 20px;
+      height: 20px;
       border-radius: 6px;
       border: 2px solid var(--text-muted);
       display: flex;
@@ -634,38 +589,32 @@
       cursor: pointer;
       flex-shrink: 0;
       margin-top: 2px;
-      transition: all 0.2s ease;
+      transition: var(--transition-fast);
     }
-    .task-item.completed .checkbox-custom {
-      background: var(--accent-success);
-      border-color: var(--accent-success);
-      color: #fff;
+    .task-card.completed .checkbox-custom {
+      background: var(--color-done);
+      border-color: var(--color-done);
+    }
+    .checkbox-custom svg {
+      width: 14px;
+      height: 14px;
+      stroke: white;
+      stroke-width: 3;
+      display: none;
+    }
+    .task-card.completed .checkbox-custom svg {
+      display: block;
     }
 
-    .task-body {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
     .task-title {
-      font-size: 0.98rem;
       font-weight: 600;
-      word-break: break-word;
+      font-size: 0.95rem;
+      line-height: 1.3;
+      flex: 1;
     }
-    .task-item.completed .task-title {
+    .task-card.completed .task-title {
       text-decoration: line-through;
       color: var(--text-muted);
-    }
-
-    .task-desc {
-      font-size: 0.84rem;
-      color: var(--text-muted);
-      line-height: 1.4;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
     }
 
     .task-meta {
@@ -673,233 +622,248 @@
       flex-wrap: wrap;
       align-items: center;
       gap: 8px;
-      margin-top: 4px;
-      font-size: 0.78rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
     }
 
     .badge {
       padding: 3px 8px;
-      border-radius: 6px;
-      font-weight: 600;
-      font-size: 0.72rem;
+      border-radius: var(--radius-pill);
+      font-size: 0.7rem;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.3px;
     }
-    .badge-priority-cao { background: rgba(255, 59, 48, 0.15); color: #ff3b30; }
-    .badge-priority-trung-binh { background: rgba(255, 149, 0, 0.15); color: #ff9500; }
-    .badge-priority-thap { background: rgba(52, 199, 89, 0.15); color: #34c759; }
+    .badge-prio-Cao { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+    .badge-prio-Trung-bình { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+    .badge-prio-Thấp { background: rgba(16, 185, 129, 0.2); color: #10b981; }
 
     .badge-cat {
-      background: rgba(110, 110, 115, 0.12);
-      color: var(--text-main);
+      background: rgba(99, 102, 241, 0.15);
+      color: #a5b4fc;
     }
 
-    .task-deadline {
+    .task-due {
       display: flex;
       align-items: center;
       gap: 4px;
-      color: var(--text-muted);
     }
-    .task-deadline.overdue {
-      color: var(--accent-danger);
+    .task-due.overdue {
+      color: #ef4444;
       font-weight: 700;
+    }
+
+    .subtask-progress {
+      font-size: 0.75rem;
+      color: var(--text-dim);
     }
 
     .task-actions {
       display: flex;
-      align-items: center;
       gap: 6px;
+      justify-content: flex-end;
+      margin-top: 4px;
     }
-
-    .btn-cal-sync {
-      background: rgba(52, 199, 89, 0.15);
-      color: var(--accent-success);
-      padding: 5px 10px;
-      border-radius: var(--radius-full);
+    .task-act-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--glass-border);
+      color: var(--text-muted);
+      border-radius: var(--radius-sm);
+      padding: 4px 8px;
       font-size: 0.75rem;
-      font-weight: 700;
+      cursor: pointer;
       display: flex;
       align-items: center;
       gap: 4px;
-      transition: all 0.2s ease;
+      transition: var(--transition-fast);
     }
-    .btn-cal-sync:hover {
-      background: var(--accent-success);
-      color: #fff;
+    .task-act-btn:hover {
+      background: var(--glass-bg-hover);
+      color: var(--text-main);
+    }
+    .task-act-btn.calendar-btn {
+      color: #a855f7;
     }
 
-    /* Kanban View */
-    .kanban-board {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-      align-items: start;
-    }
-    .kanban-col {
-      background: rgba(150, 150, 150, 0.08);
-      border: 1px solid var(--glass-border);
-      border-radius: var(--radius-md);
-      padding: 14px;
-      min-height: 400px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .kanban-header {
-      font-weight: 700;
-      font-size: 0.95rem;
+    /* Swipe revealed action overlay on mobile */
+    .swipe-actions-overlay {
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 120px;
+      background: rgba(239, 68, 68, 0.85);
+      border-radius: 0 var(--radius-md) var(--radius-md) 0;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding-bottom: 8px;
-      border-bottom: 2px solid rgba(150, 150, 150, 0.15);
-    }
-    .kanban-cards {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      min-height: 100px;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
     }
 
     /* ==========================================================================
-       7. TAB 3: TẬP TRUNG (POMODORO)
+       POMODORO TAB
        ========================================================================== */
     .pomodoro-container {
-      max-width: 540px;
+      max-width: 480px;
       margin: 0 auto;
-      padding: 32px 24px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 28px;
       text-align: center;
+      gap: 24px;
+      padding: 24px;
+      border-radius: var(--radius-lg);
     }
 
     .pomo-modes {
       display: flex;
-      background: rgba(150, 150, 150, 0.15);
+      gap: 8px;
+      background: var(--glass-border);
       padding: 4px;
-      border-radius: var(--radius-full);
-      gap: 4px;
+      border-radius: var(--radius-pill);
     }
-    .pomo-modes button {
+    .pomo-mode-btn {
       padding: 8px 16px;
-      border-radius: var(--radius-full);
-      font-weight: 600;
-      font-size: 0.85rem;
+      border-radius: var(--radius-pill);
+      border: none;
+      background: transparent;
       color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
     }
-    .pomo-modes button.active {
-      background: var(--glass-bg-hover);
-      color: var(--text-main);
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    .pomo-mode-btn.active {
+      background: var(--accent-primary);
+      color: white;
     }
 
     .pomo-display {
       position: relative;
-      width: 240px;
-      height: 240px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      width: 220px;
+      height: 220px;
     }
-    .pomo-timer-text {
-      font-size: 3.5rem;
+    .pomo-display svg {
+      width: 220px;
+      height: 220px;
+      transform: rotate(-90deg);
+    }
+    .pomo-time-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 3rem;
       font-weight: 800;
       letter-spacing: -1px;
-      font-variant-numeric: tabular-nums;
     }
 
     .pomo-controls {
       display: flex;
       gap: 16px;
-    }
-    .btn-pomo-main {
-      padding: 14px 40px;
-      border-radius: var(--radius-full);
-      font-size: 1.1rem;
-      font-weight: 700;
-      background: var(--accent-primary);
-      color: #fff;
-      box-shadow: 0 6px 20px rgba(0, 113, 227, 0.35);
+      align-items: center;
     }
 
-    .pomo-task-link {
-      width: 100%;
-      max-width: 320px;
+    .btn-pomo-main {
+      padding: 14px 40px;
+      border-radius: var(--radius-pill);
+      background: linear-gradient(135deg, var(--accent-primary), #ec4899);
+      color: white;
+      font-size: 1.1rem;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 8px 25px var(--accent-glow);
     }
-    .pomo-task-link select {
+
+    .btn-pomo-reset {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 1px solid var(--glass-border);
+      background: var(--glass-bg);
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .pomo-task-select {
       width: 100%;
-      padding: 10px 14px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--input-border);
-      background: var(--input-bg);
+      padding: 12px;
+      border-radius: var(--radius-md);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
       color: var(--text-main);
+      font-size: 0.9rem;
+      outline: none;
     }
 
     /* ==========================================================================
-       8. TAB 4: CÀI ĐẶT & DỮ LIỆU (SETTINGS & REST SYNC)
+       SETTINGS TAB
        ========================================================================== */
     .settings-section {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      max-width: 800px;
-      margin: 0 auto;
-    }
-
-    .setting-group {
       padding: 20px;
+      border-radius: var(--radius-lg);
+      margin-bottom: 20px;
       display: flex;
       flex-direction: column;
       gap: 16px;
     }
-    .group-header {
-      font-size: 1.1rem;
+
+    .settings-title {
+      font-size: 1.05rem;
       font-weight: 700;
-      padding-bottom: 8px;
-      border-bottom: 1px solid rgba(150, 150, 150, 0.15);
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
 
-    .setting-row {
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-group label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .form-control {
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      color: var(--text-main);
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .form-control:focus {
+      border-color: var(--accent-primary);
+    }
+
+    .toggle-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
+      padding: 8px 0;
     }
-    .setting-info {
-      display: flex;
-      flex-direction: column;
-    }
-    .setting-title {
-      font-weight: 600;
-    }
-    .setting-desc {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-    }
-
-    /* Switch Toggle */
     .switch {
       position: relative;
       display: inline-block;
       width: 48px;
       height: 26px;
-      flex-shrink: 0;
     }
-    .switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
+    .switch input { opacity: 0; width: 0; height: 0; }
     .slider {
       position: absolute;
       cursor: pointer;
       top: 0; left: 0; right: 0; bottom: 0;
-      background-color: rgba(150, 150, 150, 0.3);
+      background-color: var(--glass-border);
       transition: .3s;
       border-radius: 34px;
     }
@@ -913,36 +877,71 @@
       background-color: white;
       transition: .3s;
       border-radius: 50%;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
-    input:checked + .slider {
-      background-color: var(--accent-success);
+    input:checked + .slider { background-color: var(--accent-primary); }
+    input:checked + .slider:before { transform: translateX(22px); }
+
+    /* ==========================================================================
+       BOTTOM NAV (Mobile < 768px)
+       ========================================================================== */
+    .bottom-nav {
+      position: fixed;
+      bottom: 12px;
+      left: 16px;
+      right: 16px;
+      height: var(--bottom-nav-height);
+      border-radius: var(--radius-pill);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      z-index: 40;
+      padding: 0 8px;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
     }
-    input:checked + .slider:before {
-      transform: translateX(22px);
+    @media (min-width: 768px) {
+      .bottom-nav { display: none; }
+      .sidebar { display: flex; }
+      .content-area { padding-bottom: 24px; }
     }
 
-    .form-control {
-      width: 100%;
-      padding: 10px 14px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--input-border);
-      background: var(--input-bg);
-      color: var(--text-main);
+    .bnav-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.7rem;
+      font-weight: 600;
+      cursor: pointer;
+      flex: 1;
+      padding: 6px 0;
+    }
+    .bnav-btn.active {
+      color: var(--accent-primary);
+    }
+    .bnav-btn svg {
+      width: 22px;
+      height: 22px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
     /* ==========================================================================
-       9. MODALS & BOTTOM SHEET
+       BOTTOM SHEET & MODALS
        ========================================================================== */
     .modal-overlay {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.4);
+      background: rgba(0, 0, 0, 0.6);
       backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      z-index: 1000;
+      z-index: 100;
       display: flex;
-      align-items: center;
+      align-items: flex-end;
       justify-content: center;
       opacity: 0;
       pointer-events: none;
@@ -953,1290 +952,1399 @@
       pointer-events: auto;
     }
 
-    .modal-container {
-      width: 90%;
-      max-width: 520px;
+    .bottom-sheet {
+      width: 100%;
+      max-width: 600px;
       max-height: 90vh;
       overflow-y: auto;
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
       padding: 24px;
-      transform: scale(0.92);
-      transition: transform 0.3s ease;
+      transform: translateY(100%);
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .modal-overlay.active .modal-container {
-      transform: scale(1);
+    .modal-overlay.active .bottom-sheet {
+      transform: translateY(0);
     }
 
-    .modal-header {
+    @media (min-width: 768px) {
+      .modal-overlay {
+        align-items: center;
+      }
+      .bottom-sheet {
+        border-radius: var(--radius-lg);
+      }
+    }
+
+    .sheet-header {
       display: flex;
-      align-items: center;
       justify-content: space-between;
+      align-items: center;
       margin-bottom: 20px;
     }
-    .modal-title {
-      font-size: 1.2rem;
+    .sheet-title {
+      font-size: 1.15rem;
       font-weight: 700;
     }
 
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-bottom: 16px;
-    }
-    .form-group label {
-      font-size: 0.85rem;
-      font-weight: 600;
+    .btn-close {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
       color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .subtask-input-row {
       display: flex;
       gap: 8px;
     }
-
-    .subtask-list-edit {
+    .subtask-list {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
       margin-top: 8px;
     }
-    .subtask-edit-item {
+    .subtask-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: rgba(150, 150, 150, 0.1);
-      padding: 6px 12px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.05);
       border-radius: var(--radius-sm);
       font-size: 0.85rem;
     }
 
-    /* Custom Toast System */
-    #toast-container {
+    .btn-primary {
+      padding: 12px 24px;
+      border-radius: var(--radius-md);
+      background: var(--accent-primary);
+      color: white;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 15px var(--accent-glow);
+    }
+    .btn-secondary {
+      padding: 12px 24px;
+      border-radius: var(--radius-md);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      color: var(--text-main);
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Toast Notification */
+    .toast-container {
       position: fixed;
       top: 20px;
       right: 20px;
-      z-index: 2000;
+      z-index: 200;
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      pointer-events: none;
+      gap: 8px;
     }
     .toast {
       padding: 12px 20px;
-      border-radius: var(--radius-full);
-      background: rgba(30, 41, 59, 0.9);
-      color: #fff;
-      font-weight: 500;
-      font-size: 0.88rem;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
-      backdrop-filter: blur(10px);
+      border-radius: var(--radius-md);
+      background: rgba(15, 23, 42, 0.9);
+      color: white;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
       display: flex;
       align-items: center;
       gap: 10px;
-      pointer-events: auto;
-      animation: slideInRight 0.3s ease forwards;
+      animation: slideInRight 0.3s ease;
     }
     @keyframes slideInRight {
       from { transform: translateX(100%); opacity: 0; }
       to { transform: translateX(0); opacity: 1; }
     }
-
-    /* ==========================================================================
-       10. MEDIA QUERIES (MOBILE ADAPTATION)
-       ========================================================================== */
-    @media (max-width: 767px) {
-      .sidebar {
-        display: none;
-      }
-      .mobile-bottom-nav {
-        display: flex;
-      }
-      .content-area {
-        padding: 16px;
-        padding-bottom: 90px;
-      }
-      .dashboard-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-      .dashboard-middle {
-        grid-template-columns: 1fr;
-      }
-      .kanban-board {
-        grid-template-columns: 1fr;
-      }
-
-      /* Transform Modal to iOS Bottom Sheet on Mobile */
-      .modal-overlay {
-        align-items: flex-end;
-      }
-      .modal-container {
-        width: 100%;
-        max-width: 100%;
-        border-bottom-left-radius: 0;
-        border-bottom-right-radius: 0;
-        border-top-left-radius: 28px;
-        border-top-right-radius: 28px;
-        transform: translateY(100%);
-      }
-      .modal-overlay.active .modal-container {
-        transform: translateY(0);
-      }
-    }
   </style>
 </head>
-<body>
+<body data-theme="dark">
 
   <div id="app">
+
     <!-- DESKTOP SIDEBAR -->
-    <aside class="sidebar glass-panel">
+    <aside class="sidebar liquid-glass">
       <div>
-        <div class="brand">
-          <div class="brand-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <div class="brand-header">
+          <div class="brand-logo">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
           </div>
           <span class="brand-title">TaskFlow Việt</span>
         </div>
-
-        <ul class="nav-list">
-          <li class="nav-item active" data-tab="dashboard">
-            <button>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/></svg>
-              Tổng quan
-            </button>
-          </li>
-          <li class="nav-item" data-tab="tasks">
-            <button>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg>
-              Công việc
-            </button>
-          </li>
-          <li class="nav-item" data-tab="pomodoro">
-            <button>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              Tập trung
-            </button>
-          </li>
-          <li class="nav-item" data-tab="settings">
-            <button>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-              Cài đặt
-            </button>
-          </li>
-        </ul>
+        <nav class="nav-menu">
+          <button class="nav-btn active" data-tab="dashboard">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+            Tổng quan
+          </button>
+          <button class="nav-btn" data-tab="tasks">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Công việc
+          </button>
+          <button class="nav-btn" data-tab="pomodoro">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Pomodoro
+          </button>
+          <button class="nav-btn" data-tab="settings">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+            Cài đặt
+          </button>
+        </nav>
       </div>
-
-      <div class="sidebar-footer">
-        <button id="theme-toggle-btn" class="btn-icon" style="width: 100%; border-radius: var(--radius-sm); justify-content: flex-start; padding: 0 12px; gap: 10px;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-          <span id="theme-text">Giao diện sáng</span>
-        </button>
+      <div style="font-size:0.75rem; color:var(--text-dim); text-align:center;">
+        v2.5 • Firebase Realtime DB
       </div>
     </aside>
 
-    <!-- MOBILE BOTTOM NAVIGATION PILL -->
-    <nav class="mobile-bottom-nav glass-panel">
-      <button class="nav-btn active" data-tab="dashboard">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/></svg>
-        Tổng quan
-      </button>
-      <button class="nav-btn" data-tab="tasks">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
-        Công việc
-      </button>
-      <button class="nav-btn" data-tab="pomodoro">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        Tập trung
-      </button>
-      <button class="nav-btn" data-tab="settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        Cài đặt
-      </button>
-    </nav>
-
-    <!-- MAIN CONTENT WRAPPER -->
-    <div class="main-wrapper">
-      <!-- HEADER -->
-      <header class="top-header">
-        <div class="header-greeting">
-          <div class="greeting-title" id="greeting-text">Xin chào! 👋</div>
-          <div class="greeting-date" id="current-date-text">Thứ ..., ngày ...</div>
-        </div>
-        <div class="header-actions">
-          <button class="btn-primary" id="open-add-task-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            <span>+ Thêm việc</span>
-          </button>
+    <!-- MAIN WORKSPACE -->
+    <main class="main-workspace">
+      <!-- TOP HEADER -->
+      <header class="top-header liquid-glass">
+        <h1 class="header-title" id="page-title">Tổng quan</h1>
+        <div id="sync-badge" class="sync-badge sync-status-synced" title="Nhấn để đồng bộ lại">
+          <span class="dot"></span>
+          <span id="sync-text">Đã đồng bộ Firebase</span>
         </div>
       </header>
 
-      <!-- CONTENT AREA WITH 4 TABS -->
-      <main class="content-area" id="swipe-container">
+      <!-- CONTENT AREA -->
+      <div class="content-area" id="content-area">
 
-        <!-- TAB 1: TỔNG QUAN (DASHBOARD) -->
-        <section class="tab-view active" id="tab-dashboard">
-          <div class="dashboard-grid">
-            <div class="stat-card glass-card">
-              <div class="stat-icon" style="background: linear-gradient(135deg, #0071e3, #64b5f6);">
-                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <!-- TAB 1: DASHBOARD -->
+        <section id="tab-dashboard" class="tab-view active">
+          <div class="stats-grid">
+            <div class="stat-card liquid-glass">
+              <span class="label">Tổng số việc</span>
+              <span class="value" id="stat-total">0</span>
+            </div>
+            <div class="stat-card liquid-glass">
+              <span class="label">Đang thực hiện</span>
+              <span class="value" style="color:var(--color-doing)" id="stat-doing">0</span>
+            </div>
+            <div class="stat-card liquid-glass">
+              <span class="label">Đã hoàn thành</span>
+              <span class="value" style="color:var(--color-done)" id="stat-done">0</span>
+            </div>
+            <div class="stat-card liquid-glass">
+              <span class="label">Quá hạn</span>
+              <span class="value" style="color:var(--color-urgent)" id="stat-overdue">0</span>
+            </div>
+          </div>
+
+          <div class="dashboard-overview">
+            <div class="progress-ring-card liquid-glass">
+              <span style="font-weight:700; font-size:1rem;">Tiến độ hoàn thành</span>
+              <div class="ring-container">
+                <svg>
+                  <circle class="ring-bg" cx="70" cy="70" r="60"></circle>
+                  <circle class="ring-progress" id="ring-progress" cx="70" cy="70" r="60"></circle>
+                </svg>
+                <div class="ring-text" id="ring-text">0%</div>
               </div>
-              <div class="stat-info">
-                <span class="stat-value" id="stat-total">0</span>
-                <span class="stat-label">Tổng việc</span>
-              </div>
+              <span style="font-size:0.8rem; color:var(--text-muted);" id="ring-subtext">0 / 0 nhiệm vụ</span>
             </div>
 
-            <div class="stat-card glass-card">
-              <div class="stat-icon" style="background: linear-gradient(135deg, #ff9500, #ffb74d);">
-                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              </div>
-              <div class="stat-info">
-                <span class="stat-value" id="stat-doing">0</span>
-                <span class="stat-label">Đang làm</span>
-              </div>
-            </div>
-
-            <div class="stat-card glass-card">
-              <div class="stat-icon" style="background: linear-gradient(135deg, #34c759, #81c784);">
-                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-              </div>
-              <div class="stat-info">
-                <span class="stat-value" id="stat-done">0</span>
-                <span class="stat-label">Hoàn thành</span>
-              </div>
-            </div>
-
-            <div class="stat-card glass-card">
-              <div class="stat-icon" style="background: linear-gradient(135deg, #ff3b30, #e57373);">
-                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              </div>
-              <div class="stat-info">
-                <span class="stat-value" id="stat-overdue">0</span>
-                <span class="stat-label">Quá hạn</span>
+            <div class="liquid-glass" style="padding:20px; border-radius:var(--radius-lg);">
+              <span style="font-weight:700; font-size:1rem; display:block; margin-bottom:12px;">Phân loại công việc</span>
+              <div class="category-bars" id="category-bars">
+                <!-- Injected via JS -->
               </div>
             </div>
           </div>
 
-          <div class="dashboard-middle">
-            <!-- Progress Ring Widget -->
-            <div class="widget-panel glass-card">
-              <div class="widget-title">
-                <span>Tiến độ hoàn thành</span>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-              </div>
-              <div class="progress-ring-container">
-                <div class="ring-wrapper">
-                  <svg width="140" height="140">
-                    <circle class="ring-circle-bg" cx="70" cy="70" r="58"/>
-                    <circle class="ring-circle-val" id="dashboard-ring-fill" cx="70" cy="70" r="58"/>
-                  </svg>
-                  <div class="ring-center-text">
-                    <div class="ring-percent" id="dashboard-ring-text">0%</div>
-                    <div class="ring-subtext">Đã xong</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Category Breakdown Widget -->
-            <div class="widget-panel glass-card">
-              <div class="widget-title">
-                <span>Phân loại công việc</span>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
-              </div>
-              <div class="cat-bar-list" id="category-bars-container">
-                <!-- Dynamic Category Progress Bars -->
-              </div>
-            </div>
-          </div>
-
-          <!-- Urgent / Today Tasks Section -->
-          <div class="widget-panel glass-card">
-            <div class="widget-title">
-              <span>Hôm nay & Sắp tới</span>
-              <button class="btn-cal-sync" id="quick-batch-cal-btn">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                Lưu tất cả lịch
-              </button>
-            </div>
-            <div class="quick-tasks-list" id="dashboard-quick-list">
-              <!-- Rendered via JS -->
+          <div style="margin-top:24px;">
+            <h3 style="font-size:1.05rem; font-weight:700; margin-bottom:12px;">Việc cần làm hôm nay</h3>
+            <div class="tasks-container" id="dashboard-today-tasks">
+              <!-- Injected via JS -->
             </div>
           </div>
         </section>
 
-        <!-- TAB 2: CÔNG VIỆC (TASKS LIST & KANBAN) -->
-        <section class="tab-view" id="tab-tasks">
-          <div class="tasks-toolbar">
+        <!-- TAB 2: TASKS -->
+        <section id="tab-tasks" class="tab-view">
+          <div class="controls-bar">
             <div class="search-box">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input type="text" id="task-search-input" placeholder="Tìm kiếm công việc...">
+              <input type="text" id="task-search" placeholder="Tìm kiếm công việc...">
             </div>
 
-            <div class="filter-chips" id="filter-chips">
-              <button class="chip active" data-filter="all">Tất cả</button>
-              <button class="chip" data-filter="today">Hôm nay</button>
-              <button class="chip" data-filter="upcoming">Sắp tới</button>
-              <button class="chip" data-filter="overdue">Quá hạn</button>
-              <button class="chip" data-filter="high">Ưu tiên cao</button>
+            <div class="filters-group">
+              <button class="filter-btn active" data-filter="all">Tất cả</button>
+              <button class="filter-btn" data-filter="today">Hôm nay</button>
+              <button class="filter-btn" data-filter="upcoming">Sắp tới</button>
+              <button class="filter-btn" data-filter="overdue">Quá hạn</button>
             </div>
 
             <div class="view-toggle">
-              <button class="active" id="view-list-btn">
+              <button class="view-btn active" id="view-list-btn">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                 Danh sách
               </button>
-              <button id="view-kanban-btn">
+              <button class="view-btn" id="view-kanban-btn">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="12" y="3" width="5" height="18" rx="1"/><rect x="21" y="3" width="5" height="18" rx="1"/></svg>
                 Kanban
               </button>
             </div>
           </div>
 
-          <!-- LIST VIEW -->
-          <div class="task-list" id="tasks-list-container">
-            <!-- Dynamic task items -->
+          <div id="tasks-list-wrapper" class="tasks-container">
+            <!-- List View items -->
           </div>
 
-          <!-- KANBAN BOARD VIEW -->
-          <div class="kanban-board" id="tasks-kanban-container" style="display: none;">
-            <div class="kanban-col" data-status="todo">
+          <div id="tasks-kanban-wrapper" class="kanban-board" style="display:none;">
+            <div class="kanban-col liquid-glass">
               <div class="kanban-header">
-                <span>Cần làm</span>
-                <span class="badge badge-cat" id="kanban-count-todo">0</span>
+                <span>Cần làm (Todo)</span>
+                <span class="kanban-count" id="count-todo">0</span>
               </div>
-              <div class="kanban-cards" id="kanban-cards-todo"></div>
+              <div class="kanban-list" id="kanban-todo" style="display:flex; flex-direction:column; gap:10px;"></div>
             </div>
-
-            <div class="kanban-col" data-status="doing">
+            <div class="kanban-col liquid-glass">
               <div class="kanban-header">
-                <span>Đang làm</span>
-                <span class="badge badge-cat" id="kanban-count-doing">0</span>
+                <span>Đang làm (Doing)</span>
+                <span class="kanban-count" id="count-doing">0</span>
               </div>
-              <div class="kanban-cards" id="kanban-cards-doing"></div>
+              <div class="kanban-list" id="kanban-doing" style="display:flex; flex-direction:column; gap:10px;"></div>
             </div>
-
-            <div class="kanban-col" data-status="done">
+            <div class="kanban-col liquid-glass">
               <div class="kanban-header">
-                <span>Hoàn thành</span>
-                <span class="badge badge-cat" id="kanban-count-done">0</span>
+                <span>Hoàn thành (Done)</span>
+                <span class="kanban-count" id="count-done">0</span>
               </div>
-              <div class="kanban-cards" id="kanban-cards-done"></div>
+              <div class="kanban-list" id="kanban-done" style="display:flex; flex-direction:column; gap:10px;"></div>
             </div>
           </div>
         </section>
 
-        <!-- TAB 3: TẬP TRUNG (POMODORO) -->
-        <section class="tab-view" id="tab-pomodoro">
-          <div class="pomodoro-container glass-card">
+        <!-- TAB 3: POMODORO -->
+        <section id="tab-pomodoro" class="tab-view">
+          <div class="pomodoro-container liquid-glass">
             <div class="pomo-modes">
-              <button class="active" data-mins="25">Tập trung (25p)</button>
-              <button data-mins="5">Nghỉ ngắn (5p)</button>
-              <button data-mins="15">Nghỉ dài (15p)</button>
+              <button class="pomo-mode-btn active" data-pomo="work">Tập trung (25m)</button>
+              <button class="pomo-mode-btn" data-pomo="shortBreak">Nghỉ ngắn (5m)</button>
+              <button class="pomo-mode-btn" data-pomo="longBreak">Nghỉ dài (15m)</button>
             </div>
 
             <div class="pomo-display">
-              <svg width="240" height="240" style="position: absolute; transform: rotate(-90deg);">
-                <circle cx="120" cy="120" r="105" fill="none" stroke="rgba(150,150,150,0.15)" stroke-width="10"/>
-                <circle id="pomo-ring-fill" cx="120" cy="120" r="105" fill="none" stroke="var(--accent-primary)" stroke-width="10" stroke-linecap="round" stroke-dasharray="660" stroke-dashoffset="0" style="transition: stroke-dashoffset 1s linear;"/>
+              <svg>
+                <circle class="ring-bg" cx="110" cy="110" r="95"></circle>
+                <circle class="ring-progress" id="pomo-ring" cx="110" cy="110" r="95" stroke-dasharray="597" stroke-dashoffset="0"></circle>
               </svg>
-              <div class="pomo-timer-text" id="pomo-timer-text">25:00</div>
+              <div class="pomo-time-text" id="pomo-time">25:00</div>
             </div>
 
-            <div class="pomo-task-link">
-              <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Gắn công việc đang làm:</label>
-              <select id="pomo-task-select">
-                <option value="">-- Không chọn công việc --</option>
+            <div style="width:100%;">
+              <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:6px;">Gắn với công việc:</label>
+              <select id="pomo-task-select" class="pomo-task-select">
+                <option value="">-- Chọn công việc (Không bắt buộc) --</option>
               </select>
             </div>
 
             <div class="pomo-controls">
               <button class="btn-pomo-main" id="pomo-start-btn">Bắt đầu</button>
-              <button class="btn-icon" id="pomo-reset-btn" style="width: 50px; height: 50px;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              <button class="btn-pomo-reset" id="pomo-reset-btn" title="Đặt lại">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
               </button>
             </div>
+
+            <div style="font-size:0.85rem; color:var(--text-muted);">
+              Đã hoàn thành <strong id="pomo-sessions-count" style="color:var(--accent-primary);">0</strong> phiên tập trung hôm nay
+            </div>
           </div>
         </section>
 
-        <!-- TAB 4: CÀI ĐẶT & DỮ LIỆU (SETTINGS & CLOUD REST SYNC) -->
-        <section class="tab-view" id="tab-settings">
-          <div class="settings-section">
-            
-            <!-- Calendar Preferences -->
-            <div class="setting-group glass-card">
-              <div class="group-header">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                <span>Đồng bộ Lịch Điện thoại (1-Tap Direct Sync)</span>
-              </div>
-              <div class="setting-row">
-                <div class="setting-info">
-                  <div class="setting-title">Tự động mở Lịch khi tạo việc mới</div>
-                  <div class="setting-desc">Tự động gọi ứng dụng Lịch Apple (iOS) hoặc Google Calendar (Android) ngay khi lưu công việc.</div>
-                </div>
-                <label class="switch">
-                  <input type="checkbox" id="setting-auto-cal">
-                  <span class="slider"></span>
-                </label>
-              </div>
-              <div class="setting-row">
-                <div class="setting-info">
-                  <div class="setting-title">Thời gian nhắc nhở mặc định</div>
-                  <div class="setting-desc">Tạo thông báo trước thời hạn công việc.</div>
-                </div>
-                <select id="setting-default-reminder" class="form-control" style="width: 160px;">
-                  <option value="0">Đúng giờ</option>
-                  <option value="15" selected>Trước 15 phút</option>
-                  <option value="30">Trước 30 phút</option>
-                  <option value="60">Trước 1 giờ</option>
-                  <option value="1440">Trước 1 ngày</option>
-                </select>
-              </div>
+        <!-- TAB 4: SETTINGS -->
+        <section id="tab-settings" class="tab-view">
+          <div class="settings-section liquid-glass">
+            <div class="settings-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+              Cấu hình Firebase Realtime Database
             </div>
 
-            <!-- Storage & Backup -->
-            <div class="setting-group glass-card">
-              <div class="group-header">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M21 19c0 1.66-4 3-9 3s-9-1.34-9-3"/></svg>
-                <span>Bộ nhớ dữ liệu & Sao lưu</span>
-              </div>
-              <div class="setting-row">
-                <div class="setting-info">
-                  <div class="setting-title">Trạng thái lưu trữ (IndexedDB)</div>
-                  <div class="setting-desc" id="storage-status-text">Đang tính dung lượng...</div>
-                </div>
-              </div>
-              <div class="setting-row" style="flex-wrap: wrap; gap: 10px;">
-                <button class="btn-primary" id="btn-export-json" style="background: rgba(0,113,227,0.15); color: var(--accent-primary);">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Xuất JSON
-                </button>
-                <button class="btn-primary" id="btn-import-json-trigger" style="background: rgba(52,199,89,0.15); color: var(--accent-success);">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                  Nhập JSON
-                </button>
-                <input type="file" id="import-json-file" accept=".json" style="display: none;">
-                <button class="btn-primary" id="btn-export-ics-batch" style="background: rgba(175,82,222,0.15); color: var(--accent-purple);">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                  Xuất tất cả file .ICS
-                </button>
-              </div>
+            <div class="form-group">
+              <label>Database URL</label>
+              <input type="url" id="setting-db-url" class="form-control" value="https://quanlycongviec-18698-default-rtdb.firebaseio.com">
             </div>
 
-            <!-- Firebase REST Realtime Cloud Sync (Zero SDK) -->
-            <div class="setting-group glass-card">
-              <div class="group-header">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
-                <span>Đồng bộ Đám mây (Firebase REST Cloud Sync - Zero SDK)</span>
-              </div>
-              <div class="setting-desc">Tự động đồng bộ dữ liệu giữa Điện thoại và Máy tính qua REST API Firebase hoàn toàn nhẹ và không cần thư viện ngoài.</div>
-              <div class="form-group">
-                <label>Firebase Realtime DB URL:</label>
-                <input type="text" id="sync-db-url" class="form-control" placeholder="https://your-project-default-rtdb.firebaseio.com">
-              </div>
-              <div class="form-group">
-                <label>Mã phòng đồng bộ (Room Code):</label>
-                <input type="text" id="sync-room-code" class="form-control" placeholder="Ví dụ: taskflow-viet-123">
-              </div>
-              <div style="display: flex; gap: 10px;">
-                <button class="btn-primary" id="btn-cloud-push">Đẩy dữ liệu lên Cloud</button>
-                <button class="btn-primary" id="btn-cloud-pull" style="background: rgba(255,149,0,0.15); color: var(--accent-warning);">Kéo dữ liệu từ Cloud</button>
-              </div>
+            <div class="form-group">
+              <label>Room ID / Mã đồng bộ cá nhân</label>
+              <input type="text" id="setting-room-id" class="form-control" value="ca-nhan" placeholder="Ví dụ: ca-nhan, mobile-123">
             </div>
 
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button class="btn-primary" id="btn-save-firebase">Lưu cấu hình</button>
+              <button class="btn-secondary" id="btn-test-firebase">Kiểm tra kết nối</button>
+              <button class="btn-secondary" id="btn-sync-now">Đồng bộ ngay</button>
+            </div>
+
+            <div id="connection-test-result" style="font-size:0.85rem; padding:10px; border-radius:var(--radius-md); display:none;"></div>
+          </div>
+
+          <div class="settings-section liquid-glass">
+            <div class="settings-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Tích hợp Lịch điện thoại
+            </div>
+
+            <div class="toggle-row">
+              <div>
+                <div style="font-weight:600; font-size:0.9rem;">Tự động mở Lịch khi tạo việc mới</div>
+                <div style="font-size:0.75rem; color:var(--text-muted);">Mở trực tiếp ứng dụng Lịch (Apple Calendar / Google Calendar)</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="setting-auto-calendar">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-section liquid-glass">
+            <div class="settings-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+              Giao diện & Dữ liệu
+            </div>
+
+            <div class="toggle-row">
+              <span style="font-weight:600; font-size:0.9rem;">Chế độ tối (Dark Mode)</span>
+              <label class="switch">
+                <input type="checkbox" id="setting-theme-toggle" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:10px;">
+              <button class="btn-secondary" id="btn-export-json">Xuất dữ liệu JSON</button>
+              <button class="btn-secondary" id="btn-import-json">Nhập JSON</button>
+              <input type="file" id="import-file-input" accept=".json" style="display:none;">
+            </div>
           </div>
         </section>
 
-      </main>
-    </div>
+      </div>
+    </main>
+
+    <!-- FLOATING ACTION BUTTON (Add Task) -->
+    <button class="fab-btn" id="fab-add-task" title="Thêm công việc mới">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+
+    <!-- BOTTOM NAV (Mobile) -->
+    <nav class="bottom-nav liquid-glass">
+      <button class="bnav-btn active" data-tab="dashboard">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Tổng quan</span>
+      </button>
+      <button class="bnav-btn" data-tab="tasks">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>Công việc</span>
+      </button>
+      <button class="bnav-btn" data-tab="pomodoro">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>Pomodoro</span>
+      </button>
+      <button class="bnav-btn" data-tab="settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        <span>Cài đặt</span>
+      </button>
+    </nav>
   </div>
 
-  <!-- ADD / EDIT TASK MODAL (MOBILE BOTTOM SHEET) -->
-  <div class="modal-overlay" id="task-modal-overlay">
-    <div class="modal-container glass-panel">
-      <div class="modal-header">
-        <h3 class="modal-title" id="modal-task-title">Thêm công việc mới</h3>
-        <button class="btn-icon" id="close-task-modal-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
+  <!-- TASK EDIT / CREATE MODAL SHEET -->
+  <div class="modal-overlay" id="task-modal">
+    <div class="bottom-sheet liquid-glass">
+      <div class="sheet-header">
+        <h2 class="sheet-title" id="modal-title">Tạo công việc mới</h2>
+        <button class="btn-close" id="btn-close-modal">&times;</button>
       </div>
-      <form id="task-form">
+
+      <form id="task-form" onsubmit="return false;">
         <input type="hidden" id="task-id">
-        <div class="form-group">
-          <label>Tên công việc (*)</label>
-          <input type="text" id="input-title" class="form-control" placeholder="Nhập tiêu đề công việc..." required>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label>Tên công việc *</label>
+          <input type="text" id="form-task-title" class="form-control" placeholder="Nhập tên công việc..." required>
         </div>
 
-        <div class="form-group">
-          <label>Ghi chú / Mô tả</label>
-          <textarea id="input-desc" class="form-control" rows="3" placeholder="Nhập ghi chú chi tiết..."></textarea>
+        <div class="form-group" style="margin-bottom:14px;">
+          <label>Mô tả chi tiết</label>
+          <textarea id="form-task-desc" class="form-control" rows="3" placeholder="Ghi chú thêm thông tin..."></textarea>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:14px;">
           <div class="form-group">
-            <label>Phân loại</label>
-            <select id="input-cat" class="form-control">
+            <label>Danh mục</label>
+            <select id="form-task-cat" class="form-control">
               <option value="Công việc">Công việc</option>
               <option value="Cá nhân">Cá nhân</option>
-              <option value="Học tập">Học tập</option>
               <option value="Gia đình">Gia đình</option>
-              <option value="Dự án">Dự án</option>
+              <option value="Học tập">Học tập</option>
+              <option value="Khác">Khác</option>
             </select>
           </div>
           <div class="form-group">
             <label>Độ ưu tiên</label>
-            <select id="input-priority" class="form-control">
-              <option value="Cao">Cao 🔥</option>
-              <option value="Trung bình" selected>Trung bình ⚡</option>
-              <option value="Thấp">Thấp 🌿</option>
+            <select id="form-task-prio" class="form-control">
+              <option value="Cao">Cao</option>
+              <option value="Trung bình" selected>Trung bình</option>
+              <option value="Thấp">Thấp</option>
             </select>
           </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <div class="form-group">
-            <label>Trạng thái</label>
-            <select id="input-status" class="form-control">
-              <option value="todo">Cần làm</option>
-              <option value="doing">Đang làm</option>
-              <option value="done">Hoàn thành</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Thời hạn (Deadline)</label>
-            <input type="datetime-local" id="input-deadline" class="form-control">
-          </div>
+        <div class="form-group" style="margin-bottom:14px;">
+          <label>Hạn hoàn thành (Deadline)</label>
+          <input type="datetime-local" id="form-task-due" class="form-control">
         </div>
 
-        <div class="form-group">
-          <label>Nhắc nhở trước</label>
-          <select id="input-reminder" class="form-control">
-            <option value="0">Đúng giờ</option>
-            <option value="15" selected>Trắc 15 phút</option>
-            <option value="30">Trước 30 phút</option>
-            <option value="60">Trước 1 giờ</option>
-            <option value="1440">Trước 1 ngày</option>
-          </select>
-        </div>
-
-        <!-- Subtasks dynamic section -->
-        <div class="form-group">
-          <label>Công việc con (Subtasks)</label>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label>Việc con (Subtasks)</label>
           <div class="subtask-input-row">
-            <input type="text" id="input-subtask-text" class="form-control" placeholder="Thêm bước thực hiện...">
-            <button type="button" class="btn-primary" id="btn-add-subtask" style="padding: 0 16px;">Thêm</button>
+            <input type="text" id="subtask-input" class="form-control" placeholder="Thêm bước nhỏ...">
+            <button type="button" class="btn-secondary" id="btn-add-subtask">Thêm</button>
           </div>
-          <div class="subtask-list-edit" id="modal-subtask-list">
-            <!-- Dynamic Subtasks Edit -->
-          </div>
+          <div class="subtask-list" id="modal-subtask-list"></div>
         </div>
 
-        <div style="display: flex; gap: 10px; margin-top: 24px;">
-          <button type="submit" class="btn-primary" style="flex: 1; justify-content: center;">Lưu công việc</button>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+          <button type="button" class="btn-secondary" id="btn-cancel-modal">Hủy</button>
+          <button type="submit" class="btn-primary" id="btn-save-task">Lưu công việc</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- CONFIRMATION MODAL (NO ALERT/CONFIRM) -->
-  <div class="modal-overlay" id="confirm-modal-overlay">
-    <div class="modal-container glass-panel" style="max-width: 400px; text-align: center;">
-      <h3 class="modal-title" id="confirm-modal-title" style="margin-bottom: 12px;">Xác nhận xóa?</h3>
-      <p id="confirm-modal-msg" style="color: var(--text-muted); margin-bottom: 24px; font-size: 0.9rem;">Bạn có chắc chắn muốn thực hiện hành động này không?</p>
-      <div style="display: flex; gap: 12px; justify-content: center;">
-        <button class="btn-primary" id="confirm-modal-cancel" style="background: rgba(150,150,150,0.2); color: var(--text-main);">Hủy</button>
-        <button class="btn-primary" id="confirm-modal-ok" style="background: var(--accent-danger);">Đồng ý xóa</button>
-      </div>
-    </div>
-  </div>
-
   <!-- TOAST CONTAINER -->
-  <div id="toast-container"></div>
+  <div class="toast-container" id="toast-container"></div>
 
   <!-- ==========================================================================
-     VANILLA JAVASCRIPT LOGIC (IndexedDB, Direct Phone Calendar, Pomodoro, Swipe)
-     ========================================================================== -->
+       JAVASCRIPT LOGIC
+       ========================================================================== -->
   <script>
-    /* ==========================================================================
-       1. STORAGE ENGINE (INDEXEDDB WITH LOCALSTORAGE FALLBACK)
-       ========================================================================== */
-    class TaskStorage {
-      constructor() {
-        this.dbName = 'TaskFlowDB';
-        this.storeName = 'tasks';
-        this.db = null;
-      }
-
-      async init() {
-        return new Promise((resolve) => {
-          if (!window.indexedDB) {
-            console.warn('IndexedDB unavailable, fallback to localStorage.');
-            resolve(false);
-            return;
-          }
-          const request = indexedDB.open(this.dbName, 1);
-          request.onerror = () => resolve(false);
-          request.onsuccess = (e) => {
-            this.db = e.target.result;
-            resolve(true);
-          };
-          request.onupgradeneeded = (e) => {
-            const db = e.target.result;
-            if (!db.objectStoreNames.contains(this.storeName)) {
-              db.createObjectStore(this.storeName, { keyPath: 'id' });
-            }
-          };
-        });
-      }
-
-      async getAllTasks() {
-        if (this.db) {
-          return new Promise((resolve) => {
-            const tx = this.db.transaction(this.storeName, 'readonly');
-            const store = tx.objectStore(this.storeName);
-            const req = store.getAll();
-            req.onsuccess = () => resolve(req.result || []);
-            req.onerror = () => resolve(this.getFallback());
-          });
-        }
-        return this.getFallback();
-      }
-
-      async saveTasks(tasks) {
-        if (this.db) {
-          const tx = this.db.transaction(this.storeName, 'readwrite');
-          const store = tx.objectStore(this.storeName);
-          store.clear();
-          tasks.forEach(task => store.put(task));
-        }
-        localStorage.setItem('tf_tasks', JSON.stringify(tasks));
-      }
-
-      getFallback() {
-        try {
-          return JSON.parse(localStorage.getItem('tf_tasks')) || [];
-        } catch {
-          return [];
-        }
-      }
-    }
-
-    /* ==========================================================================
-       2. APP STATE & INITIAL SEED DATA
-       ========================================================================== */
-    const storage = new TaskStorage();
-
-    let appState = {
-      tasks: [],
-      activeTab: 'dashboard',
-      viewMode: 'list',
-      searchQuery: '',
-      activeFilter: 'all',
-      subtasksTemp: [],
-      settings: {
-        theme: 'light',
-        autoCalSync: true,
-        defaultReminder: '15',
-        firebaseUrl: '',
-        firebaseRoom: ''
-      }
+    /* --------------------------------------------------------------------------
+       APP STATE & STORAGE INITIALIZATION (IndexedDB + localStorage fallback)
+       -------------------------------------------------------------------------- */
+    const CONFIG = {
+      dbName: 'TaskFlowDB',
+      dbVersion: 1,
+      defaultFirebaseUrl: 'https://quanlycongviec-18698-default-rtdb.firebaseio.com',
+      fallbackFirebaseUrl: 'https://quanlycongviec-18698-default-rtdb.asia-southeast1.firebasedatabase.app',
+      defaultRoomId: 'ca-nhan'
     };
 
-    const SAMPLE_TASKS = [
-      {
-        id: 'tf-sample-1',
-        uid: 'uid-sample-1-' + Date.now(),
-        sequence: 1,
-        title: 'Báo cáo tổng kết tuần & Kế hoạch mới',
-        desc: 'Chuẩn bị slide tổng kết các đầu việc tuần này và đưa ra phương hướng cho tuần sau.',
-        cat: 'Công việc',
-        priority: 'Cao',
-        status: 'doing',
-        deadline: new Date(Date.now() + 5 * 3600 * 1000).toISOString().slice(0, 16),
-        reminder: '15',
-        subtasks: [
-          { id: 'st-1', text: 'Tổng hợp số liệu kinh doanh', done: true },
-          { id: 'st-2', text: 'Gửi mail cho trưởng phòng', done: false }
-        ]
+    let state = {
+      tasks: [],
+      settings: {
+        firebaseUrl: CONFIG.defaultFirebaseUrl,
+        roomId: CONFIG.defaultRoomId,
+        autoCalendar: false,
+        theme: 'dark'
       },
-      {
-        id: 'tf-sample-2',
-        uid: 'uid-sample-2-' + Date.now(),
-        sequence: 1,
-        title: 'Học 30 từ vựng Tiếng Anh chuyên ngành',
-        desc: 'Ôn tập thẻ từ vựng trên ứng dụng Flashcard.',
-        cat: 'Học tập',
-        priority: 'Trung bình',
-        status: 'todo',
-        deadline: new Date(Date.now() + 24 * 3600 * 1000).toISOString().slice(0, 16),
-        reminder: '30',
-        subtasks: []
+      activeTab: 'dashboard',
+      activeFilter: 'all',
+      activeView: 'list', // 'list' | 'kanban'
+      searchQuery: '',
+      subtasksTemp: [],
+      pomo: {
+        mode: 'work', // 'work' (25m), 'shortBreak' (5m), 'longBreak' (15m)
+        timeLeft: 25 * 60,
+        totalTime: 25 * 60,
+        isRunning: false,
+        timerId: null,
+        completedSessionsToday: 0
       },
-      {
-        id: 'tf-sample-3',
-        uid: 'uid-sample-3-' + Date.now(),
-        sequence: 1,
-        title: 'Mua món quà sinh nhật tặng Mẹ',
-        desc: 'Ghé cửa hàng hoa tươi và tiệm bánh kem.',
-        cat: 'Gia đình',
-        priority: 'Cao',
-        status: 'todo',
-        deadline: new Date(Date.now() + 48 * 3600 * 1000).toISOString().slice(0, 16),
-        reminder: '60',
-        subtasks: []
-      },
-      {
-        id: 'tf-sample-4',
-        uid: 'uid-sample-4-' + Date.now(),
-        sequence: 1,
-        title: 'Tập thể dục 30 phút buổi chiều',
-        desc: 'Chạy bộ công viên hoặc tập bài Cardio tại nhà.',
-        cat: 'Cá nhân',
-        priority: 'Thấp',
-        status: 'done',
-        deadline: new Date(Date.now() - 2 * 3600 * 1000).toISOString().slice(0, 16),
-        reminder: '0',
-        subtasks: []
-      }
-    ];
+      syncStatus: 'synced' // 'synced' | 'syncing' | 'offline' | 'error'
+    };
 
-    /* ==========================================================================
-       3. 1-TAP DIRECT PHONE CALENDAR SYNC HELPER (NO DOWNLOAD FOR IOS/ANDROID)
-       ========================================================================== */
-    function formatIcsDate(dateObj) {
-      return dateObj.toISOString().replace(/-|:|\.\d+/g, '');
+    let dbPromise = null;
+
+    // IndexedDB Helper
+    function initIndexedDB() {
+      return new Promise((resolve, reject) => {
+        if (!('indexedDB' in window)) {
+          console.warn('IndexedDB unavailable, falling back to localStorage');
+          resolve(null);
+          return;
+        }
+        const req = indexedDB.open(CONFIG.dbName, CONFIG.dbVersion);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains('tasks')) db.createObjectStore('tasks', { keyPath: 'id' });
+          if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'key' });
+        };
+        req.onsuccess = (e) => resolve(e.target.result);
+        req.onerror = () => resolve(null);
+      });
     }
 
-    function openInPhoneCalendar(task) {
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      const isAndroid = /Android/i.test(navigator.userAgent);
-
-      const startDate = task.deadline ? new Date(task.deadline) : new Date();
-      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Default 1 hr
-
-      const summary = encodeURIComponent(`[TaskFlow] ${task.title}`);
-      let descText = task.desc || '';
-      if (task.subtasks && task.subtasks.length > 0) {
-        descText += '\n\nCông việc con:\n' + task.subtasks.map(s => (s.done ? '[x] ' : '[ ] ') + s.text).join('\n');
+    async function loadLocalTasks() {
+      if (dbPromise) {
+        try {
+          const db = await dbPromise;
+          return new Promise((resolve) => {
+            const tx = db.transaction('tasks', 'readonly');
+            const store = tx.objectStore('tasks');
+            const req = store.getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => resolve(loadTasksLocalStorage());
+          });
+        } catch(e) {
+          return loadTasksLocalStorage();
+        }
       }
-      const description = encodeURIComponent(descText);
-      const reminderMins = parseInt(task.reminder || '15', 10);
-
-      if (isIOS) {
-        // iOS RFC 5545 Data URI scheme -> Launches Apple Calendar sheet directly
-        const icsContent = 
-`BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//TaskFlow Viet//NONSGML v1.0//EN
-BEGIN:VEVENT
-UID:${task.uid || 'task-' + task.id}
-SEQUENCE:${task.sequence || 1}
-DTSTAMP:${formatIcsDate(new Date())}
-DTSTART:${formatIcsDate(startDate)}
-DTEND:${formatIcsDate(endDate)}
-SUMMARY:[TaskFlow] ${task.title.replace(/\n/g, ' ')}
-DESCRIPTION:${descText.replace(/\n/g, '\\n')}
-BEGIN:VALARM
-TRIGGER:-PT${reminderMins}M
-ACTION:DISPLAY
-DESCRIPTION:Nhắc nhở công việc
-END:VALARM
-END:VEVENT
-END:VCALENDAR`;
-
-        const dataUri = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(icsContent);
-        window.location.href = dataUri;
-        showToast('Đang mở Lịch Apple...');
-      } else if (isAndroid) {
-        // Android -> Open Google Calendar Web Link / Intent
-        const startStr = formatIcsDate(startDate);
-        const endStr = formatIcsDate(endDate);
-        const gCalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${summary}&dates=${startStr}/${endStr}&details=${description}`;
-        window.open(gCalUrl, '_blank');
-        showToast('Đang mở Google Calendar...');
-      } else {
-        // Desktop Browser -> Google Calendar template
-        const startStr = formatIcsDate(startDate);
-        const endStr = formatIcsDate(endDate);
-        const gCalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${summary}&dates=${startStr}/${endStr}&details=${description}`;
-        window.open(gCalUrl, '_blank');
-        showToast('Đã mở Google Calendar trên giao diện Web');
-      }
+      return loadTasksLocalStorage();
     }
 
-    /* Batch ICS File Export */
-    function exportAllTasksToIcs() {
-      if (appState.tasks.length === 0) {
-        showToast('Không có công việc nào để xuất lịch!');
+    async function saveLocalTasks(tasks) {
+      if (dbPromise) {
+        try {
+          const db = await dbPromise;
+          const tx = db.transaction('tasks', 'readwrite');
+          const store = tx.objectStore('tasks');
+          store.clear();
+          tasks.forEach(t => store.put(t));
+        } catch(e) { console.error(e); }
+      }
+      localStorage.setItem('taskflow_tasks', JSON.stringify(tasks));
+    }
+
+    function loadTasksLocalStorage() {
+      try {
+        return JSON.parse(localStorage.getItem('taskflow_tasks') || '[]');
+      } catch(e) { return []; }
+    }
+
+    function loadSettingsLocal() {
+      try {
+        const stored = localStorage.getItem('taskflow_settings');
+        if (stored) return JSON.parse(stored);
+      } catch(e) {}
+      return {
+        firebaseUrl: CONFIG.defaultFirebaseUrl,
+        roomId: CONFIG.defaultRoomId,
+        autoCalendar: false,
+        theme: 'dark'
+      };
+    }
+
+    function saveSettingsLocal(settings) {
+      localStorage.setItem('taskflow_settings', JSON.stringify(settings));
+    }
+
+    /* --------------------------------------------------------------------------
+       SAMPLE DATA GENERATOR (Only loaded if database is empty)
+       -------------------------------------------------------------------------- */
+    function generateSampleTasks() {
+      const now = new Date();
+      const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const past = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+
+      return [
+        {
+          id: 'task_' + Date.now() + '_1',
+          title: 'Xem lại dự án quanlycongviec-18698 trên Firebase',
+          desc: 'Kiểm tra Realtime Database Rules và thiết lập đồng bộ dữ liệu cá nhân.',
+          category: 'Công việc',
+          priority: 'Cao',
+          status: 'doing',
+          dueDate: now.toISOString().slice(0, 16),
+          subtasks: [
+            { id: 'st1', title: 'Kiểm tra URL Firebase', completed: true },
+            { id: 'st2', title: 'Thử nghiệm đồng bộ 2 chiều', completed: false }
+          ],
+          calendarSeq: 0,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        },
+        {
+          id: 'task_' + Date.now() + '_2',
+          title: 'Tập thể dục và chạy bộ 3km',
+          desc: 'Duy trì thói quen sức khỏe cá nhân hàng ngày.',
+          category: 'Cá nhân',
+          priority: 'Trung bình',
+          status: 'todo',
+          dueDate: tomorrow.toISOString().slice(0, 16),
+          subtasks: [],
+          calendarSeq: 0,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        },
+        {
+          id: 'task_' + Date.now() + '_3',
+          title: 'Hoàn thành báo cáo tổng kết tuần',
+          desc: 'Gửi bản tổng hợp công việc tuần này cho team.',
+          category: 'Công việc',
+          priority: 'Thấp',
+          status: 'done',
+          dueDate: past.toISOString().slice(0, 16),
+          subtasks: [],
+          calendarSeq: 0,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        }
+      ];
+    }
+
+    /* --------------------------------------------------------------------------
+       FIREBASE REST SYNC ENGINE
+       -------------------------------------------------------------------------- */
+    function getFirebaseEndpoint(url = state.settings.firebaseUrl, room = state.settings.roomId) {
+      let cleanUrl = url.trim().replace(/\/+$/, '');
+      const cleanRoom = room.trim() || CONFIG.defaultRoomId;
+      return `${cleanUrl}/taskflow/${encodeURIComponent(cleanRoom)}.json`;
+    }
+
+    function updateSyncBadge(status, customMsg) {
+      state.syncStatus = status;
+      const badge = document.getElementById('sync-badge');
+      const textSpan = document.getElementById('sync-text');
+      if (!badge || !textSpan) return;
+
+      badge.className = `sync-badge sync-status-${status}`;
+      if (customMsg) {
+        textSpan.textContent = customMsg;
         return;
       }
 
-      let eventsStr = '';
-      appState.tasks.forEach(task => {
-        const startDate = task.deadline ? new Date(task.deadline) : new Date();
-        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
-        eventsStr += 
-`BEGIN:VEVENT
-UID:${task.uid || 'task-' + task.id}
-SEQUENCE:${task.sequence || 1}
-DTSTAMP:${formatIcsDate(new Date())}
-DTSTART:${formatIcsDate(startDate)}
-DTEND:${formatIcsDate(endDate)}
-SUMMARY:[TaskFlow] ${task.title.replace(/\n/g, ' ')}
-DESCRIPTION:${(task.desc || '').replace(/\n/g, '\\n')}
-END:VEVENT\n`;
+      switch (status) {
+        case 'synced': textSpan.textContent = 'Đã đồng bộ Firebase'; break;
+        case 'syncing': textSpan.textContent = 'Đang đồng bộ...'; break;
+        case 'offline': textSpan.textContent = 'Ngoại tuyến'; break;
+        case 'error': textSpan.textContent = 'Lỗi Firebase - Xem Cài đặt'; break;
+      }
+    }
+
+    async function pushToFirebase() {
+      if (!navigator.onLine) {
+        updateSyncBadge('offline');
+        return;
+      }
+      updateSyncBadge('syncing');
+
+      const endpoint = getFirebaseEndpoint();
+      const payload = {
+        updatedAt: Date.now(),
+        tasks: state.tasks
+      };
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          updateSyncBadge('synced');
+        } else {
+          console.error('Firebase Push HTTP Error:', res.status);
+          updateSyncBadge('error', `Lỗi Firebase HTTP ${res.status}`);
+        }
+      } catch (err) {
+        console.error('Firebase Push Failed:', err);
+        updateSyncBadge('error');
+      }
+    }
+
+    async function pullFromFirebase() {
+      if (!navigator.onLine) {
+        updateSyncBadge('offline');
+        return;
+      }
+      updateSyncBadge('syncing');
+
+      const endpoint = getFirebaseEndpoint();
+      try {
+        const res = await fetch(endpoint, { method: 'GET' });
+        if (!res.ok) {
+          updateSyncBadge('error', `Lỗi HTTP ${res.status}`);
+          return;
+        }
+
+        const data = await res.json();
+        if (!data || !data.tasks) {
+          // Cloud empty, if local tasks exist push them
+          if (state.tasks.length > 0) {
+            await pushToFirebase();
+          } else {
+            // Both empty, init sample
+            state.tasks = generateSampleTasks();
+            await saveLocalTasks(state.tasks);
+            await pushToFirebase();
+          }
+        } else {
+          // Compare remote data vs local
+          const remoteTasks = Array.isArray(data.tasks) ? data.tasks : Object.values(data.tasks);
+          state.tasks = mergeTaskLists(state.tasks, remoteTasks);
+          await saveLocalTasks(state.tasks);
+          renderApp();
+          updateSyncBadge('synced');
+        }
+      } catch (err) {
+        console.error('Firebase Pull Failed:', err);
+        updateSyncBadge('offline');
+      }
+    }
+
+    function mergeTaskLists(localList, remoteList) {
+      const map = new Map();
+      localList.forEach(t => map.set(t.id, t));
+
+      remoteList.forEach(rt => {
+        if (!map.has(rt.id)) {
+          map.set(rt.id, rt);
+        } else {
+          const lt = map.get(rt.id);
+          // Keep the newer version based on updatedAt timestamp
+          if ((rt.updatedAt || 0) > (lt.updatedAt || 0)) {
+            map.set(rt.id, rt);
+          }
+        }
       });
-
-      const fullIcs = 
-`BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//TaskFlow Viet//EN
-${eventsStr}END:VCALENDAR`;
-
-      const blob = new Blob([fullIcs], { type: 'text/calendar;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `TaskFlow_Lich_${new Date().toISOString().slice(0,10)}.ics`;
-      link.click();
-      showToast('Đã xuất file .ICS thành công!');
+      return Array.from(map.values());
     }
 
-    /* ==========================================================================
-       4. UI RENDER ENGINE & DASHBOARD UPDATES
-       ========================================================================== */
-    function updateDateGreeting() {
-      const now = new Date();
-      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-      document.getElementById('current-date-text').textContent = now.toLocaleDateString('vi-VN', options);
-      
-      const hour = now.getHours();
-      let greeting = 'Xin chào! 👋';
-      if (hour < 12) greeting = 'Chào buổi sáng! ☀️';
-      else if (hour < 18) greeting = 'Chào buổi chiều! 🌤️';
-      else greeting = 'Chào buổi tối! 🌙';
-      document.getElementById('greeting-text').textContent = greeting;
+    async function testFirebaseConnection() {
+      const urlInput = document.getElementById('setting-db-url').value.trim();
+      const resultDiv = document.getElementById('connection-test-result');
+      resultDiv.style.display = 'block';
+      resultDiv.style.background = 'rgba(59, 130, 246, 0.15)';
+      resultDiv.style.color = '#3b82f6';
+      resultDiv.innerHTML = '🔄 Đang thử kết nối...';
+
+      let targetUrl = urlInput.replace(/\/+$/, '');
+      let testEndpoint = `${targetUrl}/.json?shallow=true`;
+
+      try {
+        let res = await fetch(testEndpoint);
+        
+        // Auto-detect fallback if standard firebaseio fails
+        if (!res.ok && targetUrl === CONFIG.defaultFirebaseUrl) {
+          resultDiv.innerHTML = '🔄 Thử kiểm tra Server Singapore (asia-southeast1)...';
+          targetUrl = CONFIG.fallbackFirebaseUrl;
+          testEndpoint = `${targetUrl}/.json?shallow=true`;
+          res = await fetch(testEndpoint);
+          if (res.ok) {
+            document.getElementById('setting-db-url').value = targetUrl;
+          }
+        }
+
+        if (res.ok) {
+          resultDiv.style.background = 'rgba(16, 185, 129, 0.15)';
+          resultDiv.style.color = '#10b981';
+          resultDiv.innerHTML = `✅ Kết nối thành công tới Firebase!<br><small>${targetUrl}</small>`;
+          return true;
+        } else if (res.status === 401 || res.status === 403) {
+          resultDiv.style.background = 'rgba(239, 68, 68, 0.15)';
+          resultDiv.style.color = '#ef4444';
+          resultDiv.innerHTML = `❌ <strong>Lỗi Quyền Truy Cập (HTTP ${res.status})</strong><br>` +
+            `<small>Firebase Database Rules hiện đang chặn truy cập công khai. Hãy vào Firebase Console &gt; Realtime Database &gt; Rules và cập nhật:<br>` +
+            `<code>{ "rules": { ".read": true, ".write": true } }</code></small>`;
+          return false;
+        } else {
+          resultDiv.style.background = 'rgba(245, 158, 11, 0.15)';
+          resultDiv.style.color = '#f59e0b';
+          resultDiv.innerHTML = `⚠️ Thất bại với mã HTTP ${res.status}. Vui lòng kiểm tra lại URL.`;
+          return false;
+        }
+      } catch (e) {
+        resultDiv.style.background = 'rgba(239, 68, 68, 0.15)';
+        resultDiv.style.color = '#ef4444';
+        resultDiv.innerHTML = `❌ Không thể kết nối tới Server. Kiểm tra mạng hoặc URL Firebase.`;
+        return false;
+      }
     }
 
+    /* --------------------------------------------------------------------------
+       1-TAP NATIVE PHONE CALENDAR SYNC (0-File-Download on iOS)
+       -------------------------------------------------------------------------- */
+    function syncTaskToNativeCalendar(task) {
+      if (!task.dueDate) {
+        showToast('Công việc chưa có ngày hạn!');
+        return;
+      }
+
+      const startDate = new Date(task.dueDate);
+      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hour duration
+
+      const formatICSDate = (d) => d.toISOString().replace(/-|:|\.\d\d\d/g, '');
+
+      const dtStart = formatICSDate(startDate);
+      const dtEnd = formatICSDate(endDate);
+
+      const title = `[TaskFlow] ${task.title}`;
+      let desc = task.desc || '';
+      if (task.subtasks && task.subtasks.length > 0) {
+        desc += '\n\nViệc con:\n' + task.subtasks.map(s => `[${s.completed ? 'x' : ' '}] ${s.title}`).join('\n');
+      }
+
+      // Increment sequence for updates
+      task.calendarSeq = (task.calendarSeq || 0) + 1;
+
+      const ua = navigator.userAgent || '';
+      const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+      const isAndroid = /Android/.test(ua);
+
+      if (isIOS) {
+        // iOS 0-File-Download direct navigation format
+        const icsContent = [
+          'BEGIN:VCALENDAR',
+          'VERSION:2.0',
+          'PRODID:-//TaskFlow Viet//Personal Tasks//VI',
+          'METHOD:REQUEST',
+          'BEGIN:VEVENT',
+          `UID:${task.id}@taskflow.viet`,
+          `SEQUENCE:${task.calendarSeq}`,
+          `DTSTAMP:${formatICSDate(new Date())}`,
+          `DTSTART:${dtStart}`,
+          `DTEND:${dtEnd}`,
+          `SUMMARY:${title.replace(/\n/g, '\\n')}`,
+          `DESCRIPTION:${desc.replace(/\n/g, '\\n')}`,
+          'BEGIN:VALARM',
+          'TRIGGER:-PT30M',
+          'ACTION:DISPLAY',
+          'DESCRIPTION:Nhắc nhở công việc',
+          'END:VALARM',
+          'BEGIN:VALARM',
+          'TRIGGER:-PT5M',
+          'ACTION:DISPLAY',
+          'DESCRIPTION:Nhắc nhở sắp tới hạn',
+          'END:VALARM',
+          'END:VEVENT',
+          'END:VCALENDAR'
+        ].join('\r\n');
+
+        const encodedData = encodeURIComponent(icsContent);
+        window.location.href = `data:text/calendar;charset=utf-8,${encodedData}`;
+        showToast('Đã mở bản xem trước Lịch Apple!');
+      } else if (isAndroid) {
+        // Direct Google Calendar TEMPLATE link for Android
+        const gCalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE` +
+          `&text=${encodeURIComponent(title)}` +
+          `&dates=${dtStart}/${dtEnd}` +
+          `&details=${encodeURIComponent(desc)}` +
+          `&sf=true&output=xml`;
+        window.open(gCalUrl, '_blank');
+        showToast('Đã mở Google Calendar!');
+      } else {
+        // Desktop File Download Fallback
+        const icsContent = [
+          'BEGIN:VCALENDAR',
+          'VERSION:2.0',
+          'PRODID:-//TaskFlow Viet//Personal Tasks//VI',
+          'BEGIN:VEVENT',
+          `UID:${task.id}@taskflow.viet`,
+          `DTSTAMP:${formatICSDate(new Date())}`,
+          `DTSTART:${dtStart}`,
+          `DTEND:${dtEnd}`,
+          `SUMMARY:${title}`,
+          `DESCRIPTION:${desc}`,
+          'END:VEVENT',
+          'END:VCALENDAR'
+        ].join('\r\n');
+
+        const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `task_${task.id}.ics`;
+        link.click();
+        showToast('Đã tải file .ics cho Lịch Desktop!');
+      }
+
+      // Save updated calendarSeq
+      saveLocalTasks(state.tasks);
+      pushToFirebase();
+    }
+
+    /* --------------------------------------------------------------------------
+       UI RENDER ENGINE & COMPONENT BUILDERS
+       -------------------------------------------------------------------------- */
     function renderApp() {
-      const tasks = appState.tasks;
-      const now = new Date();
+      renderDashboard();
+      renderTasks();
+      renderPomodoroTaskOptions();
+    }
 
-      // Stat counters
-      const total = tasks.length;
-      const doing = tasks.filter(t => t.status === 'doing').length;
-      const done = tasks.filter(t => t.status === 'done').length;
-      const overdue = tasks.filter(t => t.status !== 'done' && t.deadline && new Date(t.deadline) < now).length;
+    function renderDashboard() {
+      const total = state.tasks.length;
+      const doing = state.tasks.filter(t => t.status === 'doing').length;
+      const done = state.tasks.filter(t => t.status === 'done').length;
+
+      const now = new Date();
+      const overdue = state.tasks.filter(t => {
+        if (t.status === 'done' || !t.dueDate) return false;
+        return new Date(t.dueDate) < now;
+      }).length;
 
       document.getElementById('stat-total').textContent = total;
       document.getElementById('stat-doing').textContent = doing;
       document.getElementById('stat-done').textContent = done;
       document.getElementById('stat-overdue').textContent = overdue;
 
-      // Dashboard Ring
-      const percent = total > 0 ? Math.round((done / total) * 100) : 0;
-      document.getElementById('dashboard-ring-text').textContent = `${percent}%`;
-      const circle = document.getElementById('dashboard-ring-fill');
-      const circumference = 364; // 2 * pi * 58
-      const offset = circumference - (percent / 100) * circumference;
-      circle.style.strokeDashoffset = offset;
+      // Circular Progress Ring
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+      const ringEl = document.getElementById('ring-progress');
+      const textEl = document.getElementById('ring-text');
+      const subtextEl = document.getElementById('ring-subtext');
 
-      // Category breakdown
-      renderCategoryBars(tasks);
+      const circumference = 2 * Math.PI * 60; // r=60
+      const offset = circumference - (pct / 100) * circumference;
+      ringEl.style.strokeDashoffset = offset;
+      textEl.textContent = `${pct}%`;
+      subtextEl.textContent = `${done} / ${total} nhiệm vụ`;
 
-      // Quick dashboard task list
-      renderDashboardQuickList(tasks);
-
-      // Main Tasks List & Kanban
-      renderTasksList();
-      renderKanbanBoard();
-
-      // Update Storage Indicator in Settings
-      updateStorageInfo();
-    }
-
-    function renderCategoryBars(tasks) {
-      const container = document.getElementById('category-bars-container');
-      container.innerHTML = '';
-      const categories = ['Công việc', 'Cá nhân', 'Học tập', 'Gia đình', 'Dự án'];
-      const colors = ['#0071e3', '#af52de', '#34c759', '#ff9500', '#ff3b30'];
-
-      categories.forEach((cat, index) => {
-        const catTasks = tasks.filter(t => t.cat === cat);
-        const catDone = catTasks.filter(t => t.status === 'done').length;
-        const count = catTasks.length;
-        const pct = count > 0 ? Math.round((catDone / count) * 100) : 0;
-
-        const item = document.createElement('div');
-        item.className = 'cat-bar-item';
-        item.innerHTML = `
-          <div class="cat-bar-header">
-            <span>${cat} (${count})</span>
-            <span>${pct}%</span>
-          </div>
-          <div class="cat-bar-track">
-            <div class="cat-bar-fill" style="width: ${pct}%; background: ${colors[index % colors.length]};"></div>
-          </div>
-        `;
-        container.appendChild(item);
+      // Category Breakdown Bars
+      const catCounts = {};
+      const categories = ['Công việc', 'Cá nhân', 'Gia đình', 'Học tập', 'Khác'];
+      categories.forEach(c => catCounts[c] = 0);
+      state.tasks.forEach(t => {
+        const c = t.category || 'Khác';
+        catCounts[c] = (catCounts[c] || 0) + 1;
       });
-    }
 
-    function renderDashboardQuickList(tasks) {
-      const container = document.getElementById('dashboard-quick-list');
-      container.innerHTML = '';
-      const urgentTasks = tasks
-        .filter(t => t.status !== 'done')
-        .sort((a, b) => new Date(a.deadline || 0) - new Date(b.deadline || 0))
-        .slice(0, 4);
-
-      if (urgentTasks.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 12px;">Không có công việc tồn đọng 🎉</div>';
-        return;
-      }
-
-      urgentTasks.forEach(task => {
-        const el = document.createElement('div');
-        el.className = 'task-item glass-card';
-        el.innerHTML = `
-          <div class="checkbox-custom" data-id="${task.id}"></div>
-          <div class="task-body">
-            <div class="task-title">${escapeHtml(task.title)}</div>
-            <div class="task-meta">
-              <span class="badge badge-priority-${task.priority.toLowerCase().replace(' ', '-')}">${task.priority}</span>
-              <span class="task-deadline">${formatDateDisplay(task.deadline)}</span>
+      const catBarsContainer = document.getElementById('category-bars');
+      catBarsContainer.innerHTML = categories.map(cat => {
+        const count = catCounts[cat] || 0;
+        const catPct = total > 0 ? Math.round((count / total) * 100) : 0;
+        return `
+          <div class="cat-bar-item">
+            <div class="cat-bar-info">
+              <span>${cat}</span>
+              <strong style="color:var(--text-muted);">${count} (${catPct}%)</strong>
+            </div>
+            <div class="cat-bar-track">
+              <div class="cat-bar-fill" style="width: ${catPct}%;"></div>
             </div>
           </div>
-          <button class="btn-cal-sync" data-cal-id="${task.id}">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            Lưu Lịch
-          </button>
         `;
-        el.querySelector('.checkbox-custom').addEventListener('click', () => toggleTaskDone(task.id));
-        el.querySelector('[data-cal-id]').addEventListener('click', () => openInPhoneCalendar(task));
-        container.appendChild(el);
-      });
+      }).join('');
+
+      // Today's Urgent Quick List
+      const todayContainer = document.getElementById('dashboard-today-tasks');
+      const todayStr = now.toISOString().slice(0, 10);
+      const todayTasks = state.tasks.filter(t => t.dueDate && t.dueDate.startsWith(todayStr));
+
+      if (todayTasks.length === 0) {
+        todayContainer.innerHTML = `<div style="color:var(--text-muted); font-size:0.9rem; padding:12px; text-align:center;">🎉 Không có công việc nào cần hoàn thành hôm nay!</div>`;
+      } else {
+        todayContainer.innerHTML = todayTasks.map(t => createTaskCardHTML(t)).join('');
+        attachTaskEvents(todayContainer);
+      }
     }
 
-    function renderTasksList() {
-      const container = document.getElementById('tasks-list-container');
-      container.innerHTML = '';
+    function renderTasks() {
+      let filtered = state.tasks.filter(t => {
+        // Filter by Search Query
+        if (state.searchQuery) {
+          const q = state.searchQuery.toLowerCase();
+          const matchTitle = t.title.toLowerCase().includes(q);
+          const matchDesc = (t.desc || '').toLowerCase().includes(q);
+          if (!matchTitle && !matchDesc) return false;
+        }
 
-      const filtered = filterTasks(appState.tasks);
+        // Filter Tabs
+        const now = new Date();
+        const todayStr = now.toISOString().slice(0, 10);
 
-      if (filtered.length === 0) {
-        container.innerHTML = `
-          <div class="glass-card" style="text-align: center; padding: 40px; color: var(--text-muted);">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 8px;"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
-            <div>Không tìm thấy công việc phù hợp</div>
-          </div>
-        `;
-        return;
+        if (state.activeFilter === 'today') {
+          return t.dueDate && t.dueDate.startsWith(todayStr);
+        } else if (state.activeFilter === 'upcoming') {
+          if (!t.dueDate) return false;
+          const due = new Date(t.dueDate);
+          return due > now && !t.dueDate.startsWith(todayStr);
+        } else if (state.activeFilter === 'overdue') {
+          if (!t.dueDate || t.status === 'done') return false;
+          return new Date(t.dueDate) < now;
+        }
+        return true;
+      });
+
+      const listWrapper = document.getElementById('tasks-list-wrapper');
+      const kanbanWrapper = document.getElementById('tasks-kanban-wrapper');
+
+      if (state.activeView === 'list') {
+        listWrapper.style.display = 'flex';
+        kanbanWrapper.style.display = 'none';
+
+        if (filtered.length === 0) {
+          listWrapper.innerHTML = `<div style="text-align:center; color:var(--text-muted); padding:40px 0;">Không tìm thấy công việc phù hợp</div>`;
+        } else {
+          listWrapper.innerHTML = filtered.map(t => createTaskCardHTML(t)).join('');
+          attachTaskEvents(listWrapper);
+        }
+      } else {
+        listWrapper.style.display = 'none';
+        kanbanWrapper.style.display = 'grid';
+
+        const todo = filtered.filter(t => t.status === 'todo');
+        const doing = filtered.filter(t => t.status === 'doing');
+        const done = filtered.filter(t => t.status === 'done');
+
+        document.getElementById('count-todo').textContent = todo.length;
+        document.getElementById('count-doing').textContent = doing.length;
+        document.getElementById('count-done').textContent = done.length;
+
+        const todoCol = document.getElementById('kanban-todo');
+        const doingCol = document.getElementById('kanban-doing');
+        const doneCol = document.getElementById('kanban-done');
+
+        todoCol.innerHTML = todo.map(t => createTaskCardHTML(t)).join('');
+        doingCol.innerHTML = doing.map(t => createTaskCardHTML(t)).join('');
+        doneCol.innerHTML = done.map(t => createTaskCardHTML(t)).join('');
+
+        attachTaskEvents(kanbanWrapper);
+      }
+    }
+
+    function createTaskCardHTML(task) {
+      const isDone = task.status === 'done';
+      const now = new Date();
+      const isOverdue = !isDone && task.dueDate && new Date(task.dueDate) < now;
+
+      const subtasksCount = task.subtasks ? task.subtasks.length : 0;
+      const subtasksDone = task.subtasks ? task.subtasks.filter(s => s.completed).length : 0;
+
+      let formattedDate = '';
+      if (task.dueDate) {
+        const d = new Date(task.dueDate);
+        formattedDate = `${d.getDate()}/${d.getMonth()+1} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
       }
 
-      filtered.forEach(task => {
-        const isDone = task.status === 'done';
-        const isOverdue = !isDone && task.deadline && new Date(task.deadline) < new Date();
-
-        const subtaskCount = task.subtasks ? task.subtasks.length : 0;
-        const subtaskDone = task.subtasks ? task.subtasks.filter(s => s.done).length : 0;
-
-        const el = document.createElement('div');
-        el.className = `task-item glass-card ${isDone ? 'completed' : ''}`;
-        el.innerHTML = `
-          <div class="checkbox-custom" data-toggle="${task.id}">
-            ${isDone ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
-          </div>
-          <div class="task-body">
-            <div class="task-title">${escapeHtml(task.title)}</div>
-            ${task.desc ? `<div class="task-desc">${escapeHtml(task.desc)}</div>` : ''}
-            <div class="task-meta">
-              <span class="badge badge-priority-${task.priority.toLowerCase().replace(' ', '-')}">${task.priority}</span>
-              <span class="badge badge-cat">${task.cat}</span>
-              ${task.deadline ? `<span class="task-deadline ${isOverdue ? 'overdue' : ''}">📅 ${formatDateDisplay(task.deadline)} ${isOverdue ? '(Quá hạn)' : ''}</span>` : ''}
-              ${subtaskCount > 0 ? `<span style="color: var(--text-muted);">☑️ ${subtaskDone}/${subtaskCount}</span>` : ''}
+      return `
+        <div class="task-card liquid-glass ${isDone ? 'completed' : ''}" data-id="${task.id}">
+          <div class="task-header-row">
+            <div class="checkbox-custom" data-act="toggle-done">
+              <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div style="flex:1;">
+              <div class="task-title">${escapeHTML(task.title)}</div>
+              ${task.desc ? `<div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">${escapeHTML(task.desc)}</div>` : ''}
             </div>
           </div>
-          <div class="task-actions">
-            <button class="btn-cal-sync" data-cal-id="${task.id}">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              Lưu Lịch
-            </button>
-            <button class="btn-icon" data-edit-id="${task.id}" style="width: 32px; height: 32px;">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            </button>
-            <button class="btn-icon" data-del-id="${task.id}" style="width: 32px; height: 32px; color: var(--accent-danger);">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-            </button>
-          </div>
-        `;
 
-        el.querySelector('[data-toggle]').addEventListener('click', () => toggleTaskDone(task.id));
-        el.querySelector('[data-cal-id]').addEventListener('click', () => openInPhoneCalendar(task));
-        el.querySelector('[data-edit-id]').addEventListener('click', () => openEditTaskModal(task));
-        el.querySelector('[data-del-id]').addEventListener('click', () => confirmDeleteTask(task.id));
-
-        container.appendChild(el);
-      });
-    }
-
-    function renderKanbanBoard() {
-      const todoBox = document.getElementById('kanban-cards-todo');
-      const doingBox = document.getElementById('kanban-cards-doing');
-      const doneBox = document.getElementById('kanban-cards-done');
-
-      todoBox.innerHTML = '';
-      doingBox.innerHTML = '';
-      doneBox.innerHTML = '';
-
-      const filtered = filterTasks(appState.tasks);
-
-      let counts = { todo: 0, doing: 0, done: 0 };
-
-      filtered.forEach(task => {
-        counts[task.status] = (counts[task.status] || 0) + 1;
-
-        const card = document.createElement('div');
-        card.className = 'glass-card';
-        card.style.padding = '12px';
-        card.style.cursor = 'grab';
-        card.draggable = true;
-        card.dataset.id = task.id;
-
-        card.innerHTML = `
-          <div style="font-weight: 600; font-size: 0.9rem; margin-bottom: 6px;">${escapeHtml(task.title)}</div>
           <div class="task-meta">
-            <span class="badge badge-priority-${task.priority.toLowerCase().replace(' ', '-')}">${task.priority}</span>
-            <span class="badge badge-cat">${task.cat}</span>
+            <span class="badge badge-prio-${task.priority.replace(' ', '-')}">${task.priority}</span>
+            <span class="badge badge-cat">${task.category}</span>
+            ${task.dueDate ? `
+              <span class="task-due ${isOverdue ? 'overdue' : ''}">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                ${formattedDate} ${isOverdue ? '(Quá hạn)' : ''}
+              </span>
+            ` : ''}
+            ${subtasksCount > 0 ? `<span class="subtask-progress">✓ ${subtasksDone}/${subtasksCount} việc con</span>` : ''}
           </div>
-        `;
 
-        // HTML5 Drag and drop support
-        card.addEventListener('dragstart', (e) => {
-          e.dataTransfer.setData('text/plain', task.id);
+          <div class="task-actions">
+            <button class="task-act-btn calendar-btn" data-act="calendar" title="Tích hợp Lịch">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Lịch
+            </button>
+            <button class="task-act-btn" data-act="edit">Sửa</button>
+            <button class="task-act-btn" data-act="delete" style="color:#ef4444;">Xóa</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function attachTaskEvents(container) {
+      container.querySelectorAll('.task-card').forEach(card => {
+        const id = card.dataset.id;
+        const task = state.tasks.find(t => t.id === id);
+        if (!task) return;
+
+        // Click handlers
+        card.addEventListener('click', (e) => {
+          const actBtn = e.target.closest('[data-act]');
+          if (!actBtn) return;
+          const act = actBtn.dataset.act;
+          e.stopPropagation();
+
+          if (act === 'toggle-done') {
+            toggleTaskStatus(id);
+          } else if (act === 'calendar') {
+            syncTaskToNativeCalendar(task);
+          } else if (act === 'edit') {
+            openTaskModal(task);
+          } else if (act === 'delete') {
+            deleteTask(id);
+          }
         });
 
-        if (task.status === 'todo') todoBox.appendChild(card);
-        else if (task.status === 'doing') doingBox.appendChild(card);
-        else if (task.status === 'done') doneBox.appendChild(card);
-      });
+        // Touch Swipe Gestures for Mobile Task Items
+        let startX = 0;
+        card.addEventListener('touchstart', (e) => {
+          startX = e.touches[0].clientX;
+        }, { passive: true });
 
-      document.getElementById('kanban-count-todo').textContent = counts.todo;
-      document.getElementById('kanban-count-doing').textContent = counts.doing;
-      document.getElementById('kanban-count-done').textContent = counts.done;
-
-      // Enable Kanban Drag Over & Drop
-      document.querySelectorAll('.kanban-col').forEach(col => {
-        col.addEventListener('dragover', (e) => e.preventDefault());
-        col.addEventListener('drop', (e) => {
-          e.preventDefault();
-          const taskId = e.dataTransfer.getData('text/plain');
-          const targetStatus = col.dataset.status;
-          if (taskId && targetStatus) {
-            updateTaskStatus(taskId, targetStatus);
+        card.addEventListener('touchend', (e) => {
+          const diffX = e.changedTouches[0].clientX - startX;
+          if (diffX > 70) {
+            // Swipe right -> toggle complete
+            toggleTaskStatus(id);
+            showToast(task.status === 'done' ? 'Đã đánh dấu hoàn thành!' : 'Đã mở lại công việc!');
+          } else if (diffX < -70) {
+            // Swipe left -> delete quick trigger
+            if (confirm(`Xóa công việc "${task.title}"?`)) {
+              deleteTask(id);
+            }
           }
         });
       });
     }
 
-    function filterTasks(tasks) {
-      let result = [...tasks];
-      const q = appState.searchQuery.toLowerCase().trim();
-      if (q) {
-        result = result.filter(t => t.title.toLowerCase().includes(q) || (t.desc && t.desc.toLowerCase().includes(q)));
+    /* --------------------------------------------------------------------------
+       TASK ACTIONS & MODALS
+       -------------------------------------------------------------------------- */
+    async function toggleTaskStatus(id) {
+      const task = state.tasks.find(t => t.id === id);
+      if (!task) return;
+
+      if (task.status === 'done') {
+        task.status = 'todo';
+      } else {
+        task.status = 'done';
       }
+      task.updatedAt = Date.now();
 
-      const now = new Date();
-      const filter = appState.activeFilter;
-
-      if (filter === 'today') {
-        result = result.filter(t => {
-          if (!t.deadline) return false;
-          const d = new Date(t.deadline);
-          return d.toDateString() === now.toDateString();
-        });
-      } else if (filter === 'upcoming') {
-        result = result.filter(t => t.deadline && new Date(t.deadline) > now);
-      } else if (filter === 'overdue') {
-        result = result.filter(t => t.status !== 'done' && t.deadline && new Date(t.deadline) < now);
-      } else if (filter === 'high') {
-        result = result.filter(t => t.priority === 'Cao');
-      }
-
-      return result;
-    }
-
-    /* ==========================================================================
-       5. TASK ACTIONS & MODAL LOGIC
-       ========================================================================== */
-    async function saveAppState() {
-      await storage.saveTasks(appState.tasks);
+      await saveLocalTasks(state.tasks);
       renderApp();
-      updatePomodoroTaskSelect();
+      pushToFirebase();
     }
 
-    function toggleTaskDone(id) {
-      const task = appState.tasks.find(t => t.id === id);
-      if (task) {
-        task.status = task.status === 'done' ? 'todo' : 'done';
-        task.sequence = (task.sequence || 1) + 1;
-        saveAppState();
-        showToast(task.status === 'done' ? 'Đã hoàn thành công việc!' : 'Đã mở lại công việc!');
+    async function deleteTask(id) {
+      state.tasks = state.tasks.filter(t => t.id !== id);
+      await saveLocalTasks(state.tasks);
+      renderApp();
+      pushToFirebase();
+      showToast('Đã xóa công việc!');
+    }
+
+    function openTaskModal(taskToEdit = null) {
+      const modal = document.getElementById('task-modal');
+      const form = document.getElementById('task-form');
+
+      state.subtasksTemp = [];
+
+      if (taskToEdit) {
+        document.getElementById('modal-title').textContent = 'Chỉnh sửa công việc';
+        document.getElementById('task-id').value = taskToEdit.id;
+        document.getElementById('form-task-title').value = taskToEdit.title;
+        document.getElementById('form-task-desc').value = taskToEdit.desc || '';
+        document.getElementById('form-task-cat').value = taskToEdit.category || 'Công việc';
+        document.getElementById('form-task-prio').value = taskToEdit.priority || 'Trung bình';
+        document.getElementById('form-task-due').value = taskToEdit.dueDate || '';
+        state.subtasksTemp = taskToEdit.subtasks ? [...taskToEdit.subtasks] : [];
+      } else {
+        document.getElementById('modal-title').textContent = 'Tạo công việc mới';
+        form.reset();
+        document.getElementById('task-id').value = '';
       }
-    }
 
-    function updateTaskStatus(id, newStatus) {
-      const task = appState.tasks.find(t => t.id === id);
-      if (task && task.status !== newStatus) {
-        task.status = newStatus;
-        task.sequence = (task.sequence || 1) + 1;
-        saveAppState();
-        showToast(`Đã chuyển sang: ${newStatus === 'todo' ? 'Cần làm' : newStatus === 'doing' ? 'Đang làm' : 'Hoàn thành'}`);
-      }
-    }
-
-    function confirmDeleteTask(id) {
-      openConfirmModal('Xác nhận xóa công việc?', 'Bạn có chắc chắn muốn xóa vĩnh viễn công việc này không?', async () => {
-        appState.tasks = appState.tasks.filter(t => t.id !== id);
-        await saveAppState();
-        showToast('Đã xóa công việc.');
-      });
-    }
-
-    function openAddTaskModal() {
-      document.getElementById('modal-task-title').textContent = 'Thêm công việc mới';
-      document.getElementById('task-id').value = '';
-      document.getElementById('input-title').value = '';
-      document.getElementById('input-desc').value = '';
-      document.getElementById('input-cat').value = 'Công việc';
-      document.getElementById('input-priority').value = 'Trung bình';
-      document.getElementById('input-status').value = 'todo';
-      
-      // Default deadline to +3 hours from now
-      const defaultDate = new Date(Date.now() + 3 * 3600 * 1000);
-      document.getElementById('input-deadline').value = defaultDate.toISOString().slice(0, 16);
-      document.getElementById('input-reminder').value = appState.settings.defaultReminder || '15';
-
-      appState.subtasksTemp = [];
-      renderSubtasksEdit();
-
-      document.getElementById('task-modal-overlay').classList.add('active');
-    }
-
-    function openEditTaskModal(task) {
-      document.getElementById('modal-task-title').textContent = 'Chỉnh sửa công việc';
-      document.getElementById('task-id').value = task.id;
-      document.getElementById('input-title').value = task.title;
-      document.getElementById('input-desc').value = task.desc || '';
-      document.getElementById('input-cat').value = task.cat;
-      document.getElementById('input-priority').value = task.priority;
-      document.getElementById('input-status').value = task.status;
-      document.getElementById('input-deadline').value = task.deadline || '';
-      document.getElementById('input-reminder').value = task.reminder || '15';
-
-      appState.subtasksTemp = task.subtasks ? JSON.parse(JSON.stringify(task.subtasks)) : [];
-      renderSubtasksEdit();
-
-      document.getElementById('task-modal-overlay').classList.add('active');
+      renderModalSubtasks();
+      modal.classList.add('active');
     }
 
     function closeTaskModal() {
-      document.getElementById('task-modal-overlay').classList.remove('active');
+      document.getElementById('task-modal').classList.remove('active');
     }
 
-    function renderSubtasksEdit() {
-      const box = document.getElementById('modal-subtask-list');
-      box.innerHTML = '';
-      appState.subtasksTemp.forEach((st, idx) => {
-        const item = document.createElement('div');
-        item.className = 'subtask-edit-item';
-        item.innerHTML = `
-          <span>${escapeHtml(st.text)}</span>
-          <button type="button" data-del-st="${idx}" style="color: var(--accent-danger); font-weight: bold;">✕</button>
-        `;
-        item.querySelector('[data-del-st]').addEventListener('click', () => {
-          appState.subtasksTemp.splice(idx, 1);
-          renderSubtasksEdit();
-        });
-        box.appendChild(item);
-      });
+    function renderModalSubtasks() {
+      const listEl = document.getElementById('modal-subtask-list');
+      listEl.innerHTML = state.subtasksTemp.map((st, index) => `
+        <div class="subtask-item">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" ${st.completed ? 'checked' : ''} onchange="toggleModalSubtask(${index})">
+            <span style="${st.completed ? 'text-decoration:line-through; color:var(--text-muted);' : ''}">${escapeHTML(st.title)}</span>
+          </div>
+          <button type="button" style="background:none; border:none; color:#ef4444; cursor:pointer;" onclick="removeModalSubtask(${index})">&times;</button>
+        </div>
+      `).join('');
     }
 
-    document.getElementById('btn-add-subtask').addEventListener('click', () => {
-      const input = document.getElementById('input-subtask-text');
-      const text = input.value.trim();
-      if (text) {
-        appState.subtasksTemp.push({ id: 'st-' + Date.now(), text: text, done: false });
-        input.value = '';
-        renderSubtasksEdit();
-      }
-    });
-
-    document.getElementById('task-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const id = document.getElementById('task-id').value;
-      const title = document.getElementById('input-title').value.trim();
-      const desc = document.getElementById('input-desc').value.trim();
-      const cat = document.getElementById('input-cat').value;
-      const priority = document.getElementById('input-priority').value;
-      const status = document.getElementById('input-status').value;
-      const deadline = document.getElementById('input-deadline').value;
-      const reminder = document.getElementById('input-reminder').value;
-
-      let savedTask = null;
-
-      if (id) {
-        // Edit existing
-        const task = appState.tasks.find(t => t.id === id);
-        if (task) {
-          task.title = title;
-          task.desc = desc;
-          task.cat = cat;
-          task.priority = priority;
-          task.status = status;
-          task.deadline = deadline;
-          task.reminder = reminder;
-          task.subtasks = appState.subtasksTemp;
-          task.sequence = (task.sequence || 1) + 1;
-          savedTask = task;
-        }
-      } else {
-        // Add new
-        const newTask = {
-          id: 'tf-' + Date.now(),
-          uid: 'uid-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
-          sequence: 1,
-          title,
-          desc,
-          cat,
-          priority,
-          status,
-          deadline,
-          reminder,
-          subtasks: appState.subtasksTemp
-        };
-        appState.tasks.unshift(newTask);
-        savedTask = newTask;
-      }
-
-      await saveAppState();
-      closeTaskModal();
-      showToast('Đã lưu công việc thành công!');
-
-      // Auto calendar sync if enabled in settings
-      if (savedTask && appState.settings.autoCalSync) {
-        setTimeout(() => openInPhoneCalendar(savedTask), 400);
-      }
-    });
-
-    /* ==========================================================================
-       6. POMODORO TIMER ENGINE & WEB AUDIO CHIME
-       ========================================================================== */
-    let pomoState = {
-      totalSecs: 25 * 60,
-      remainingSecs: 25 * 60,
-      isRunning: false,
-      timerId: null
+    window.toggleModalSubtask = function(index) {
+      state.subtasksTemp[index].completed = !state.subtasksTemp[index].completed;
+      renderModalSubtasks();
     };
 
+    window.removeModalSubtask = function(index) {
+      state.subtasksTemp.splice(index, 1);
+      renderModalSubtasks();
+    };
+
+    async function handleTaskFormSubmit() {
+      const id = document.getElementById('task-id').value;
+      const title = document.getElementById('form-task-title').value.trim();
+      const desc = document.getElementById('form-task-desc').value.trim();
+      const category = document.getElementById('form-task-cat').value;
+      const priority = document.getElementById('form-task-prio').value;
+      const dueDate = document.getElementById('form-task-due').value;
+
+      if (!title) return;
+
+      let isNew = false;
+      let taskObj = null;
+
+      if (id) {
+        taskObj = state.tasks.find(t => t.id === id);
+        if (taskObj) {
+          taskObj.title = title;
+          taskObj.desc = desc;
+          taskObj.category = category;
+          taskObj.priority = priority;
+          taskObj.dueDate = dueDate;
+          taskObj.subtasks = state.subtasksTemp;
+          taskObj.updatedAt = Date.now();
+        }
+      } else {
+        isNew = true;
+        taskObj = {
+          id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+          title,
+          desc,
+          category,
+          priority,
+          status: 'todo',
+          dueDate,
+          subtasks: state.subtasksTemp,
+          calendarSeq: 0,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        };
+        state.tasks.unshift(taskObj);
+      }
+
+      await saveLocalTasks(state.tasks);
+      renderApp();
+      closeTaskModal();
+      pushToFirebase();
+      showToast(isNew ? 'Đã tạo công việc mới!' : 'Đã cập nhật công việc!');
+
+      // Auto calendar sync trigger if setting enabled & is new task
+      if (isNew && state.settings.autoCalendar && taskObj.dueDate) {
+        syncTaskToNativeCalendar(taskObj);
+      }
+    }
+
+    /* --------------------------------------------------------------------------
+       POMODORO TIMER ENGINE & WEB AUDIO API CHIME
+       -------------------------------------------------------------------------- */
+    function renderPomodoroTaskOptions() {
+      const select = document.getElementById('pomo-task-select');
+      const uncompleted = state.tasks.filter(t => t.status !== 'done');
+      select.innerHTML = `<option value="">-- Chọn công việc (Không bắt buộc) --</option>` +
+        uncompleted.map(t => `<option value="${t.id}">${escapeHTML(t.title)}</option>`).join('');
+    }
+
+    function initPomodoro() {
+      const startBtn = document.getElementById('pomo-start-btn');
+      const resetBtn = document.getElementById('pomo-reset-btn');
+      const modeBtns = document.querySelectorAll('.pomo-mode-btn');
+
+      modeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          modeBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const mode = btn.dataset.pomo;
+          setPomodoroMode(mode);
+        });
+      });
+
+      startBtn.addEventListener('click', () => {
+        if (state.pomo.isRunning) {
+          pausePomodoro();
+        } else {
+          startPomodoro();
+        }
+      });
+
+      resetBtn.addEventListener('click', () => {
+        resetPomodoro();
+      });
+
+      updatePomoDisplay();
+    }
+
+    function setPomodoroMode(mode) {
+      pausePomodoro();
+      state.pomo.mode = mode;
+      if (mode === 'work') state.pomo.totalTime = 25 * 60;
+      else if (mode === 'shortBreak') state.pomo.totalTime = 5 * 60;
+      else if (mode === 'longBreak') state.pomo.totalTime = 15 * 60;
+      state.pomo.timeLeft = state.pomo.totalTime;
+      updatePomoDisplay();
+    }
+
+    function startPomodoro() {
+      if (state.pomo.isRunning) return;
+      state.pomo.isRunning = true;
+      document.getElementById('pomo-start-btn').textContent = 'Tạm dừng';
+
+      state.pomo.timerId = setInterval(() => {
+        if (state.pomo.timeLeft > 0) {
+          state.pomo.timeLeft--;
+          updatePomoDisplay();
+        } else {
+          onPomodoroComplete();
+        }
+      }, 1000);
+    }
+
+    function pausePomodoro() {
+      state.pomo.isRunning = false;
+      document.getElementById('pomo-start-btn').textContent = 'Tiếp tục';
+      if (state.pomo.timerId) clearInterval(state.pomo.timerId);
+    }
+
+    function resetPomodoro() {
+      pausePomodoro();
+      state.pomo.timeLeft = state.pomo.totalTime;
+      document.getElementById('pomo-start-btn').textContent = 'Bắt đầu';
+      updatePomoDisplay();
+    }
+
+    function updatePomoDisplay() {
+      const m = Math.floor(state.pomo.timeLeft / 60);
+      const s = state.pomo.timeLeft % 60;
+      const timeStr = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      document.getElementById('pomo-time').textContent = timeStr;
+
+      // Update Ring Progress
+      const ring = document.getElementById('pomo-ring');
+      const circumference = 597; // 2 * PI * 95
+      const pct = (state.pomo.totalTime - state.pomo.timeLeft) / state.pomo.totalTime;
+      const offset = circumference * (1 - pct);
+      ring.style.strokeDashoffset = offset;
+    }
+
+    function onPomodoroComplete() {
+      pausePomodoro();
+      playChimeSound();
+
+      if (navigator.vibrate) {
+        navigator.vibrate([200, 100, 200, 100, 400]);
+      }
+
+      if (state.pomo.mode === 'work') {
+        state.pomo.completedSessionsToday++;
+        document.getElementById('pomo-sessions-count').textContent = state.pomo.completedSessionsToday;
+        showToast('🎉 Xuất sắc! Bạn đã hoàn thành 1 phiên Pomodoro!');
+      } else {
+        showToast('Thời gian nghỉ đã hết! Sẵn sàng quay lại làm việc.');
+      }
+
+      resetPomodoro();
+    }
+
+    // Web Audio API Audio Chime (Zero External Files)
     function playChimeSound() {
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -2246,387 +2354,279 @@ ${eventsStr}END:VCALENDAR`;
         const gain = ctx.createGain();
 
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5 note
-        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.5); // A5 note
+        osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+        osc.frequency.exponentialRampToValueAtTime(659.25, ctx.currentTime + 0.3); // E5
+        osc.frequency.exponentialRampToValueAtTime(783.99, ctx.currentTime + 0.6); // G5
 
         gain.gain.setValueAtTime(0.3, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
 
         osc.connect(gain);
         gain.connect(ctx.destination);
-
         osc.start();
-        osc.stop(ctx.currentTime + 0.8);
-      } catch (e) {
-        console.warn('Audio play prevented', e);
-      }
-
-      // Haptic vibration on phones
-      if (navigator.vibrate) {
-        navigator.vibrate([200, 100, 200, 100, 400]);
+        osc.stop(ctx.currentTime + 1.2);
+      } catch(e) {
+        console.log('Web Audio Chime Error:', e);
       }
     }
 
-    function updatePomodoroDisplay() {
-      const mins = Math.floor(pomoState.remainingSecs / 60);
-      const secs = pomoState.remainingSecs % 60;
-      const timeStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-      document.getElementById('pomo-timer-text').textContent = timeStr;
+    /* --------------------------------------------------------------------------
+       SETTINGS & EXPORT/IMPORT BACKUP LOGIC
+       -------------------------------------------------------------------------- */
+    function initSettingsUI() {
+      document.getElementById('setting-db-url').value = state.settings.firebaseUrl;
+      document.getElementById('setting-room-id').value = state.settings.roomId;
+      document.getElementById('setting-auto-calendar').checked = state.settings.autoCalendar;
+      document.getElementById('setting-theme-toggle').checked = state.settings.theme === 'dark';
 
-      // Update ring fill
-      const ring = document.getElementById('pomo-ring-fill');
-      const circumference = 660; // 2 * pi * 105
-      const pct = pomoState.totalSecs > 0 ? pomoState.remainingSecs / pomoState.totalSecs : 0;
-      ring.style.strokeDashoffset = circumference * (1 - pct);
-    }
+      document.getElementById('btn-save-firebase').addEventListener('click', () => {
+        const url = document.getElementById('setting-db-url').value.trim();
+        const room = document.getElementById('setting-room-id').value.trim();
 
-    function startPomodoro() {
-      if (pomoState.isRunning) return;
-      pomoState.isRunning = true;
-      document.getElementById('pomo-start-btn').textContent = 'Tạm dừng';
+        state.settings.firebaseUrl = url || CONFIG.defaultFirebaseUrl;
+        state.settings.roomId = room || CONFIG.defaultRoomId;
+        saveSettingsLocal(state.settings);
 
-      pomoState.timerId = setInterval(() => {
-        if (pomoState.remainingSecs > 0) {
-          pomoState.remainingSecs--;
-          updatePomodoroDisplay();
-        } else {
-          pausePomodoro();
-          playChimeSound();
-          showToast('🔔 Hết giờ tập trung! Hãy nghỉ ngơi.');
-        }
-      }, 1000);
-    }
-
-    function pausePomodoro() {
-      pomoState.isRunning = false;
-      document.getElementById('pomo-start-btn').textContent = 'Tiếp tục';
-      if (pomoState.timerId) clearInterval(pomoState.timerId);
-    }
-
-    function resetPomodoro() {
-      pausePomodoro();
-      pomoState.remainingSecs = pomoState.totalSecs;
-      document.getElementById('pomo-start-btn').textContent = 'Bắt đầu';
-      updatePomodoroDisplay();
-    }
-
-    function updatePomodoroTaskSelect() {
-      const select = document.getElementById('pomo-task-select');
-      select.innerHTML = '<option value="">-- Không chọn công việc --</option>';
-      appState.tasks.filter(t => t.status !== 'done').forEach(t => {
-        const opt = document.createElement('option');
-        opt.value = t.id;
-        opt.textContent = t.title;
-        select.appendChild(opt);
+        showToast('Đã lưu cấu hình Firebase!');
+        pullFromFirebase();
       });
-    }
 
-    document.querySelectorAll('.pomo-modes button').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.pomo-modes button').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const mins = parseInt(btn.dataset.mins, 10);
-        pomoState.totalSecs = mins * 60;
-        resetPomodoro();
+      document.getElementById('btn-test-firebase').addEventListener('click', () => {
+        testFirebaseConnection();
       });
-    });
 
-    document.getElementById('pomo-start-btn').addEventListener('click', () => {
-      if (pomoState.isRunning) pausePomodoro();
-      else startPomodoro();
-    });
+      document.getElementById('btn-sync-now').addEventListener('click', () => {
+        pullFromFirebase();
+      });
 
-    document.getElementById('pomo-reset-btn').addEventListener('click', resetPomodoro);
+      document.getElementById('setting-auto-calendar').addEventListener('change', (e) => {
+        state.settings.autoCalendar = e.target.checked;
+        saveSettingsLocal(state.settings);
+        showToast(state.settings.autoCalendar ? 'Đã bật tự động mở Lịch' : 'Đã tắt tự động mở Lịch');
+      });
 
-    /* ==========================================================================
-       7. SETTINGS, BACKUP, REST CLOUD SYNC
-       ========================================================================== */
-    function updateStorageInfo() {
-      const bytes = new Blob([JSON.stringify(appState.tasks)]).size;
-      const kb = (bytes / 1024).toFixed(2);
-      document.getElementById('storage-status-text').textContent = `Đang lưu ${appState.tasks.length} công việc (~${kb} KB).`;
-    }
+      document.getElementById('setting-theme-toggle').addEventListener('change', (e) => {
+        state.settings.theme = e.target.checked ? 'dark' : 'light';
+        document.body.setAttribute('data-theme', state.settings.theme);
+        saveSettingsLocal(state.settings);
+      });
 
-    // JSON Export
-    document.getElementById('btn-export-json').addEventListener('click', () => {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState.tasks, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `TaskFlow_Backup_${new Date().toISOString().slice(0,10)}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
-      showToast('Đã xuất dữ liệu JSON thành công!');
-    });
+      // JSON Export / Import
+      document.getElementById('btn-export-json').addEventListener('click', () => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state.tasks, null, 2));
+        const dlAnchor = document.createElement('a');
+        dlAnchor.setAttribute("href", dataStr);
+        dlAnchor.setAttribute("download", `taskflow_backup_${new Date().toISOString().slice(0,10)}.json`);
+        document.body.appendChild(dlAnchor);
+        dlAnchor.click();
+        dlAnchor.remove();
+      });
 
-    // JSON Import Trigger
-    document.getElementById('btn-import-json-trigger').addEventListener('click', () => {
-      document.getElementById('import-json-file').click();
-    });
+      document.getElementById('btn-import-json').addEventListener('click', () => {
+        document.getElementById('import-file-input').click();
+      });
 
-    document.getElementById('import-json-file').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = async (evt) => {
-        try {
-          const imported = JSON.parse(evt.target.result);
-          if (Array.isArray(imported)) {
-            appState.tasks = imported;
-            await saveAppState();
-            showToast('Đã nhập dữ liệu JSON thành công!');
-          } else {
-            showToast('File JSON không hợp lệ!');
+      document.getElementById('import-file-input').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          try {
+            const imported = JSON.parse(event.target.result);
+            if (Array.isArray(imported)) {
+              state.tasks = imported;
+              await saveLocalTasks(state.tasks);
+              renderApp();
+              pushToFirebase();
+              showToast('Đã nhập thành công ' + imported.length + ' công việc!');
+            }
+          } catch(err) {
+            showToast('Lỗi file JSON không hợp lệ!');
           }
-        } catch {
-          showToast('Lỗi đọc file JSON!');
-        }
-      };
-      reader.readAsText(file);
-    });
+        };
+        reader.readAsText(file);
+      });
+    }
 
-    document.getElementById('btn-export-ics-batch').addEventListener('click', exportAllTasksToIcs);
-
-    // REST Firebase Push & Pull (Zero SDK)
-    document.getElementById('btn-cloud-push').addEventListener('click', async () => {
-      const url = document.getElementById('sync-db-url').value.trim();
-      const room = document.getElementById('sync-room-code').value.trim();
-      if (!url || !room) {
-        showToast('Vui lòng nhập URL Firebase và Mã phòng!');
-        return;
-      }
-      try {
-        const target = `${url.replace(/\/$/, '')}/rooms/${room}.json`;
-        const res = await fetch(target, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(appState.tasks)
+    /* --------------------------------------------------------------------------
+       GLOBAL EVENT LISTENERS & NAVIGATION & TOUCH SWIPES
+       -------------------------------------------------------------------------- */
+    function initNavigation() {
+      const navBtns = document.querySelectorAll('[data-tab]');
+      navBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const tab = btn.dataset.tab;
+          switchTab(tab);
         });
-        if (res.ok) {
-          showToast('Đã đẩy dữ liệu lên Firebase Cloud thành công!');
-        } else {
-          showToast('Lỗi kết nối Firebase REST!');
-        }
-      } catch (err) {
-        showToast('Không thể kết nối Firebase: ' + err.message);
-      }
-    });
+      });
 
-    document.getElementById('btn-cloud-pull').addEventListener('click', async () => {
-      const url = document.getElementById('sync-db-url').value.trim();
-      const room = document.getElementById('sync-room-code').value.trim();
-      if (!url || !room) {
-        showToast('Vui lòng nhập URL Firebase và Mã phòng!');
-        return;
-      }
-      try {
-        const target = `${url.replace(/\/$/, '')}/rooms/${room}.json`;
-        const res = await fetch(target);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data)) {
-            appState.tasks = data;
-            await saveAppState();
-            showToast('Đã kéo dữ liệu từ Firebase thành công!');
-          } else {
-            showToast('Chưa có dữ liệu trên Cloud!');
+      // Horizontal Touch Swipe for Tab Switching on Mobile
+      let touchStartX = 0;
+      const contentArea = document.getElementById('content-area');
+      const tabsOrder = ['dashboard', 'tasks', 'pomodoro', 'settings'];
+
+      contentArea.addEventListener('touchstart', (e) => {
+        touchStartX = e.touches[0].clientX;
+      }, { passive: true });
+
+      contentArea.addEventListener('touchend', (e) => {
+        const touchEndX = e.changedTouches[0].clientX;
+        const diffX = touchEndX - touchStartX;
+
+        if (Math.abs(diffX) > 100) {
+          const currentIndex = tabsOrder.indexOf(state.activeTab);
+          if (diffX < 0 && currentIndex < tabsOrder.length - 1) {
+            // Swipe Left -> Next Tab
+            switchTab(tabsOrder[currentIndex + 1]);
+          } else if (diffX > 0 && currentIndex > 0) {
+            // Swipe Right -> Prev Tab
+            switchTab(tabsOrder[currentIndex - 1]);
           }
         }
-      } catch (err) {
-        showToast('Lỗi kéo dữ liệu Firebase!');
-      }
-    });
+      });
+    }
 
-    /* ==========================================================================
-       8. SWIPE GESTURES FOR MOBILE TAB NAVIGATION
-       ========================================================================== */
-    const tabOrder = ['dashboard', 'tasks', 'pomodoro', 'settings'];
-    let touchStartX = 0;
-    let touchStartY = 0;
-
-    const swipeContainer = document.getElementById('swipe-container');
-    swipeContainer.addEventListener('touchstart', (e) => {
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-    }, { passive: true });
-
-    swipeContainer.addEventListener('touchend', (e) => {
-      const touchEndX = e.changedTouches[0].clientX;
-      const touchEndY = e.changedTouches[0].clientY;
-      const diffX = touchEndX - touchStartX;
-      const diffY = touchEndY - touchStartY;
-
-      // Ensure horizontal swipe is dominant over vertical scroll
-      if (Math.abs(diffX) > 70 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
-        const currentIndex = tabOrder.indexOf(appState.activeTab);
-        if (diffX < 0 && currentIndex < tabOrder.length - 1) {
-          // Swipe left -> next tab
-          switchTab(tabOrder[currentIndex + 1]);
-        } else if (diffX > 0 && currentIndex > 0) {
-          // Swipe right -> prev tab
-          switchTab(tabOrder[currentIndex - 1]);
-        }
-      }
-    }, { passive: true });
-
-    /* ==========================================================================
-       9. GENERAL HELPERS, CONFIRM MODAL, TOASTS
-       ========================================================================== */
     function switchTab(tabId) {
-      appState.activeTab = tabId;
+      state.activeTab = tabId;
 
-      // Update Nav buttons
-      document.querySelectorAll('.nav-item').forEach(item => {
-        item.classList.toggle('active', item.dataset.tab === tabId);
-      });
-      document.querySelectorAll('.mobile-bottom-nav .nav-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.tab === tabId);
+      // Update Nav buttons state
+      document.querySelectorAll('[data-tab]').forEach(b => {
+        b.classList.toggle('active', b.dataset.tab === tabId);
       });
 
-      // Update Tab Views
-      document.querySelectorAll('.tab-view').forEach(view => {
-        view.classList.toggle('active', view.id === `tab-${tabId}`);
+      // Update Tab view sections
+      document.querySelectorAll('.tab-view').forEach(v => {
+        v.classList.remove('active');
       });
+      const activeSec = document.getElementById(`tab-${tabId}`);
+      if (activeSec) activeSec.classList.add('active');
 
-      renderApp();
-    }
-
-    function showToast(msg) {
-      const container = document.getElementById('toast-container');
-      const toast = document.createElement('div');
-      toast.className = 'toast';
-      toast.innerHTML = `<span>✨</span> <span>${escapeHtml(msg)}</span>`;
-      container.appendChild(toast);
-      setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateX(100%)';
-        toast.style.transition = 'all 0.3s ease';
-        setTimeout(() => toast.remove(), 300);
-      }, 2600);
-    }
-
-    function openConfirmModal(title, msg, onConfirm) {
-      document.getElementById('confirm-modal-title').textContent = title;
-      document.getElementById('confirm-modal-msg').textContent = msg;
-
-      const overlay = document.getElementById('confirm-modal-overlay');
-      const okBtn = document.getElementById('confirm-modal-ok');
-      const cancelBtn = document.getElementById('confirm-modal-cancel');
-
-      overlay.classList.add('active');
-
-      const cleanup = () => {
-        overlay.classList.remove('active');
-        okBtn.removeEventListener('click', handleOk);
-        cancelBtn.removeEventListener('click', cleanup);
+      // Update Header Title
+      const titles = {
+        dashboard: 'Tổng quan',
+        tasks: 'Danh sách công việc',
+        pomodoro: 'Đồng hồ Pomodoro',
+        settings: 'Cài đặt hệ thống'
       };
-
-      const handleOk = () => {
-        cleanup();
-        onConfirm();
-      };
-
-      okBtn.addEventListener('click', handleOk);
-      cancelBtn.addEventListener('click', cleanup);
+      document.getElementById('page-title').textContent = titles[tabId] || 'TaskFlow';
     }
 
-    function formatDateDisplay(dateTimeStr) {
-      if (!dateTimeStr) return '';
-      const d = new Date(dateTimeStr);
-      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} - ${d.getDate()}/${d.getMonth()+1}`;
-    }
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
-
-    /* ==========================================================================
-       10. EVENT LISTENERS INITIALIZATION
-       ========================================================================== */
-    document.addEventListener('DOMContentLoaded', async () => {
-      updateDateGreeting();
-
-      // Theme toggle initialization
-      const themeBtn = document.getElementById('theme-toggle-btn');
-      themeBtn.addEventListener('click', () => {
-        const isDark = document.body.getAttribute('data-theme') === 'dark';
-        if (isDark) {
-          document.body.removeAttribute('data-theme');
-          document.getElementById('theme-text').textContent = 'Giao diện sáng';
-        } else {
-          document.body.setAttribute('data-theme', 'dark');
-          document.getElementById('theme-text').textContent = 'Giao diện tối';
-        }
+    function initTaskControlsUI() {
+      // Search
+      document.getElementById('task-search').addEventListener('input', (e) => {
+        state.searchQuery = e.target.value.trim();
+        renderTasks();
       });
 
-      // Navigation Listeners
-      document.querySelectorAll('[data-tab]').forEach(btn => {
-        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-      });
-
-      // Add Task Modal triggers
-      document.getElementById('open-add-task-btn').addEventListener('click', openAddTaskModal);
-      document.getElementById('close-task-modal-btn').addEventListener('click', closeTaskModal);
-
-      // Search & Filters
-      document.getElementById('task-search-input').addEventListener('input', (e) => {
-        appState.searchQuery = e.target.value;
-        renderTasksList();
-        renderKanbanBoard();
-      });
-
-      document.querySelectorAll('#filter-chips .chip').forEach(chip => {
-        chip.addEventListener('click', () => {
-          document.querySelectorAll('#filter-chips .chip').forEach(c => c.classList.remove('active'));
-          chip.classList.add('active');
-          appState.activeFilter = chip.dataset.filter;
-          renderTasksList();
-          renderKanbanBoard();
+      // Filters
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          state.activeFilter = btn.dataset.filter;
+          renderTasks();
         });
       });
 
-      // View mode toggle
+      // View toggle (List vs Kanban)
       document.getElementById('view-list-btn').addEventListener('click', () => {
-        appState.viewMode = 'list';
         document.getElementById('view-list-btn').classList.add('active');
         document.getElementById('view-kanban-btn').classList.remove('active');
-        document.getElementById('tasks-list-container').style.display = 'flex';
-        document.getElementById('tasks-kanban-container').style.display = 'none';
+        state.activeView = 'list';
+        renderTasks();
       });
 
       document.getElementById('view-kanban-btn').addEventListener('click', () => {
-        appState.viewMode = 'kanban';
         document.getElementById('view-kanban-btn').classList.add('active');
         document.getElementById('view-list-btn').classList.remove('active');
-        document.getElementById('tasks-list-container').style.display = 'none';
-        document.getElementById('tasks-kanban-container').style.display = 'grid';
+        state.activeView = 'kanban';
+        renderTasks();
       });
 
-      document.getElementById('quick-batch-cal-btn').addEventListener('click', exportAllTasksToIcs);
+      // Modal open / close
+      document.getElementById('fab-add-task').addEventListener('click', () => openTaskModal());
+      document.getElementById('btn-close-modal').addEventListener('click', () => closeTaskModal());
+      document.getElementById('btn-cancel-modal').addEventListener('click', () => closeTaskModal());
 
-      // Auto-calendar preference
-      const autoCalCheck = document.getElementById('setting-auto-cal');
-      autoCalCheck.checked = appState.settings.autoCalSync;
-      autoCalCheck.addEventListener('change', (e) => {
-        appState.settings.autoCalSync = e.target.checked;
+      // Form Subtask Add
+      document.getElementById('btn-add-subtask').addEventListener('click', () => {
+        const input = document.getElementById('subtask-input');
+        const val = input.value.trim();
+        if (val) {
+          state.subtasksTemp.push({ id: 'st_' + Date.now(), title: val, completed: false });
+          input.value = '';
+          renderModalSubtasks();
+        }
       });
 
-      // Load tasks from storage
-      await storage.init();
-      const savedTasks = await storage.getAllTasks();
+      // Form Submit
+      document.getElementById('task-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        handleTaskFormSubmit();
+      });
 
-      if (savedTasks && savedTasks.length > 0) {
-        appState.tasks = savedTasks;
-      } else {
-        // Seed sample data on initial launch
-        appState.tasks = SAMPLE_TASKS;
-        await storage.saveTasks(SAMPLE_TASKS);
-      }
+      // Sync Badge Click -> Trigger Sync
+      document.getElementById('sync-badge').addEventListener('click', () => {
+        pullFromFirebase();
+      });
+    }
 
+    function showToast(message) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.innerHTML = `<span>💡</span> <span>${escapeHTML(message)}</span>`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    function escapeHTML(str) {
+      if (!str) return '';
+      return str.replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+    }
+
+    /* --------------------------------------------------------------------------
+       APP INITIALIZATION BOOTSTRAP
+       -------------------------------------------------------------------------- */
+    window.addEventListener('load', async () => {
+      // 1. Init IndexedDB
+      dbPromise = initIndexedDB();
+
+      // 2. Load Settings & Apply Theme
+      state.settings = loadSettingsLocal();
+      document.body.setAttribute('data-theme', state.settings.theme);
+
+      // 3. Load Offline Local Tasks
+      state.tasks = await loadLocalTasks();
       renderApp();
-      updatePomodoroDisplay();
-      updatePomodoroTaskSelect();
+
+      // 4. Bind UI Event Listeners
+      initNavigation();
+      initTaskControlsUI();
+      initPomodoro();
+      initSettingsUI();
+
+      // 5. Initial Firebase Pull Sync
+      await pullFromFirebase();
+
+      // 6. Polling & Visibility Sync Engine (Auto pull every 10 seconds & when tab regains focus)
+      setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          pullFromFirebase();
+        }
+      }, 10000);
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          pullFromFirebase();
+        }
+      });
     });
   </script>
 </body>
