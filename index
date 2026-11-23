@@ -1,0 +1,2036 @@
+<!DOCTYPE html>
+<html lang="vi" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaskFlow Việt - Quản Lý Công Việc & Đồng Bộ Lịch (.ics)</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f7ff',
+              100: '#e0effe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- React & Babel CDNs -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(156, 163, 175, 0.4);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(107, 114, 128, 0.6);
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .animate-fadeIn {
+      animation: fadeIn 0.2s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="h-full bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-200">
+  <div id="root" class="h-full"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    // --- Audio Sound Synthesizer for Pomodoro Beep ---
+    const playNotificationSound = () => {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3); // A5
+        gain.gain.setValueAtTime(0.2, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.6);
+      } catch (e) {
+        console.log('Audio notification fallback');
+      }
+    };
+
+    // --- Helpers & Initial Data ---
+    const CATEGORIES = {
+      work: { name: 'Công việc', icon: 'fa-briefcase', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200 dark:border-blue-800' },
+      personal: { name: 'Cá nhân', icon: 'fa-user', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border-purple-200 dark:border-purple-800' },
+      study: { name: 'Học tập', icon: 'fa-graduation-cap', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' },
+      other: { name: 'Khác', icon: 'fa-layer-group', color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700' }
+    };
+
+    const PRIORITIES = {
+      high: { name: 'Cao', color: 'bg-red-500 text-white', badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
+      medium: { name: 'Trung bình', color: 'bg-amber-500 text-white', badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+      low: { name: 'Thấp', color: 'bg-slate-400 text-white', badge: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' }
+    };
+
+    const STATUSES = {
+      todo: { name: 'Cần làm', color: 'border-slate-300 dark:border-slate-700' },
+      in_progress: { name: 'Đang làm', color: 'border-blue-500 text-blue-600' },
+      completed: { name: 'Hoàn thành', color: 'border-emerald-500 text-emerald-600' }
+    };
+
+    const REMINDER_OPTIONS = [
+      { label: 'Đúng giờ', value: 0 },
+      { label: 'Trước 15 phút', value: 15 },
+      { label: 'Trước 30 phút', value: 30 },
+      { label: 'Trước 1 tiếng', value: 60 },
+      { label: 'Trước 1 ngày', value: 1440 }
+    ];
+
+    // Helper to format date strings for display
+    const formatDate = (dateStr) => {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      
+      const hasTime = dateStr.includes('T');
+      if (hasTime) {
+        return d.toLocaleString('vi-VN', { 
+          day: '2-digit', 
+          month: '2-digit', 
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+      return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    };
+
+    const getTodayISO = () => {
+      const now = new Date();
+      return now.toISOString().split('T')[0];
+    };
+
+    const getTomorrowISO = () => {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return tomorrow.toISOString().split('T')[0];
+    };
+
+    const getYesterdayISO = () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      return yesterday.toISOString().split('T')[0];
+    };
+
+    // --- ICS FILE GENERATOR (RFC 5545 COMPLIANT) ---
+    const formatICSTime = (dateObj) => {
+      const pad = (n) => String(n).padStart(2, '0');
+      const year = dateObj.getUTCFullYear();
+      const month = pad(dateObj.getUTCMonth() + 1);
+      const day = pad(dateObj.getUTCDate());
+      const hours = pad(dateObj.getUTCHours());
+      const minutes = pad(dateObj.getUTCMinutes());
+      const seconds = pad(dateObj.getUTCSeconds());
+      return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
+    };
+
+    const escapeICS = (str) => {
+      if (!str) return '';
+      return str
+        .replace(/\\/g, '\\\\')
+        .replace(/;/g, '\\;')
+        .replace(/,/g, '\\,')
+        .replace(/\n/g, '\\n');
+    };
+
+    const buildSingleEventICS = (task, reminderMinutes = 30) => {
+      let startDate;
+      if (task.deadline) {
+        if (task.deadline.includes('T')) {
+          startDate = new Date(task.deadline);
+        } else {
+          startDate = new Date(`${task.deadline}T09:00:00`);
+        }
+      } else {
+        startDate = new Date();
+        startDate.setHours(9, 0, 0, 0);
+      }
+      
+      if (isNaN(startDate.getTime())) {
+        startDate = new Date();
+      }
+
+      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hour duration
+      const now = new Date();
+
+      let descText = `Mức độ ưu tiên: ${PRIORITIES[task.priority]?.name || 'Trung bình'}\n`;
+      descText += `Danh mục: ${CATEGORIES[task.category]?.name || 'Khác'}\n`;
+      if (task.description) {
+        descText += `\nMô tả: ${task.description}\n`;
+      }
+      if (task.subtasks && task.subtasks.length > 0) {
+        descText += `\nViệc nhỏ cần làm:\n`;
+        task.subtasks.forEach(s => {
+          descText += `- [${s.completed ? 'x' : ' '}] ${s.title}\n`;
+        });
+      }
+      descText += `\n--- Quản lý từ TaskFlow Việt ---`;
+
+      const lines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//TaskFlow Viet//Personal Task Manager//VI',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
+        'BEGIN:VEVENT',
+        `UID:taskflow-${task.id}-${Date.now()}@taskflow.local`,
+        `DTSTAMP:${formatICSTime(now)}`,
+        `DTSTART:${formatICSTime(startDate)}`,
+        `DTEND:${formatICSTime(endDate)}`,
+        `SUMMARY:${escapeICS(task.title)}`,
+        `DESCRIPTION:${escapeICS(descText)}`,
+        'STATUS:CONFIRMED',
+      ];
+
+      // Insert Phone Alarm Trigger (VALARM)
+      if (reminderMinutes >= 0) {
+        lines.push(
+          'BEGIN:VALARM',
+          'ACTION:DISPLAY',
+          `DESCRIPTION:Nhắc nhở: ${escapeICS(task.title)}`,
+          `TRIGGER:-PT${reminderMinutes}M`,
+          'END:VALARM'
+        );
+      }
+
+      lines.push('END:VEVENT', 'END:VCALENDAR');
+      return lines.join('\r\n');
+    };
+
+    const buildBatchEventsICS = (taskList, reminderMinutes = 30) => {
+      const now = new Date();
+      const lines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//TaskFlow Viet//Personal Task Manager//VI',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH'
+      ];
+
+      taskList.forEach(task => {
+        let startDate;
+        if (task.deadline) {
+          if (task.deadline.includes('T')) {
+            startDate = new Date(task.deadline);
+          } else {
+            startDate = new Date(`${task.deadline}T09:00:00`);
+          }
+        } else {
+          startDate = new Date();
+          startDate.setHours(9, 0, 0, 0);
+        }
+        
+        if (isNaN(startDate.getTime())) startDate = new Date();
+        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+
+        let descText = `Ưu tiên: ${PRIORITIES[task.priority]?.name || 'Trung bình'}\n`;
+        if (task.description) descText += `\nMô tả: ${task.description}\n`;
+        if (task.subtasks && task.subtasks.length > 0) {
+          descText += `\nViệc nhỏ:\n` + task.subtasks.map(s => `- [${s.completed ? 'x' : ' '}] ${s.title}`).join('\n') + '\n';
+        }
+        descText += `\n--- TaskFlow Việt ---`;
+
+        lines.push(
+          'BEGIN:VEVENT',
+          `UID:taskflow-${task.id}-${Date.now()}@taskflow.local`,
+          `DTSTAMP:${formatICSTime(now)}`,
+          `DTSTART:${formatICSTime(startDate)}`,
+          `DTEND:${formatICSTime(endDate)}`,
+          `SUMMARY:${escapeICS(task.title)}`,
+          `DESCRIPTION:${escapeICS(descText)}`,
+          'STATUS:CONFIRMED'
+        );
+
+        if (reminderMinutes >= 0) {
+          lines.push(
+            'BEGIN:VALARM',
+            'ACTION:DISPLAY',
+            `DESCRIPTION:Nhắc nhở: ${escapeICS(task.title)}`,
+            `TRIGGER:-PT${reminderMinutes}M`,
+            'END:VALARM'
+          );
+        }
+
+        lines.push('END:VEVENT');
+      });
+
+      lines.push('END:VCALENDAR');
+      return lines.join('\r\n');
+    };
+
+    const triggerICSDownload = (filename, content) => {
+      const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.setAttribute('download', filename);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    };
+
+    // Initial Sample Tasks
+    const INITIAL_TASKS = [
+      {
+        id: '1',
+        title: 'Hoàn thành báo cáo tổng kết quý 4',
+        description: 'Tổng hợp số liệu kinh doanh, đánh giá KPI phòng ban và chuẩn bị bài thuyết trình slide.',
+        deadline: `${getTodayISO()}T16:30`,
+        reminderOffset: 30,
+        priority: 'high',
+        category: 'work',
+        status: 'in_progress',
+        createdAt: new Date().toISOString(),
+        subtasks: [
+          { id: '101', title: 'Thu thập báo cáo từ đội Sales', completed: true },
+          { id: '102', title: 'Vẽ biểu đồ tăng trưởng', completed: false }
+        ]
+      },
+      {
+        id: '2',
+        title: 'Học 30 từ vựng Tiếng Anh Chuyên Ngành',
+        description: 'Ôn tập chủ đề Technology & Business Management trên ứng dụng Anki.',
+        deadline: `${getTomorrowISO()}T20:00`,
+        reminderOffset: 15,
+        priority: 'medium',
+        category: 'study',
+        status: 'todo',
+        createdAt: new Date().toISOString(),
+        subtasks: [
+          { id: '201', title: 'Ôn 15 từ cũ', completed: false },
+          { id: '202', title: 'Học 15 từ mới', completed: false }
+        ]
+      },
+      {
+        id: '3',
+        title: 'Tập thể dục & Chạy bộ 5km',
+        description: 'Duy trì thói quen sức khỏe tại công viên gần nhà.',
+        deadline: `${getTodayISO()}T17:30`,
+        reminderOffset: 15,
+        priority: 'low',
+        category: 'personal',
+        status: 'completed',
+        createdAt: new Date().toISOString(),
+        subtasks: []
+      },
+      {
+        id: '4',
+        title: 'Đặt lịch bảo dưỡng xe máy định kỳ',
+        description: 'Thay nhớt xe và kiểm tra phanh trước chuyến đi công tác xa.',
+        deadline: `${getYesterdayISO()}T09:00`,
+        reminderOffset: 60,
+        priority: 'high',
+        category: 'other',
+        status: 'todo',
+        createdAt: new Date().toISOString(),
+        subtasks: []
+      },
+      {
+        id: '5',
+        title: 'Thiết kế giao diện Landing Page sản phẩm mới',
+        description: 'Nghiên cứu UX/UI đối thủ, thiết kế wireframe trên Figma và xin phản hồi từ Product Manager.',
+        deadline: `${getTomorrowISO()}T14:00`,
+        reminderOffset: 30,
+        priority: 'medium',
+        category: 'work',
+        status: 'in_progress',
+        createdAt: new Date().toISOString(),
+        subtasks: []
+      }
+    ];
+
+    // --- MAIN APP COMPONENT ---
+    function App() {
+      // States
+      const [tasks, setTasks] = useState(() => {
+        const saved = localStorage.getItem('viet_task_manager_tasks_v2');
+        return saved ? JSON.parse(saved) : INITIAL_TASKS;
+      });
+
+      const [darkMode, setDarkMode] = useState(() => {
+        const saved = localStorage.getItem('viet_task_manager_theme');
+        return saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+      });
+
+      const [activeView, setActiveView] = useState('dashboard'); // 'dashboard', 'list', 'kanban', 'pomodoro'
+      const [searchQuery, setSearchQuery] = useState('');
+      const [filterCategory, setFilterCategory] = useState('all');
+      const [filterPriority, setFilterPriority] = useState('all');
+      const [filterTime, setFilterTime] = useState('all'); // 'all', 'today', 'upcoming', 'overdue'
+
+      // Modal & Form state
+      const [isModalOpen, setIsModalOpen] = useState(false);
+      const [editingTask, setEditingTask] = useState(null);
+      const [deleteModalId, setDeleteModalId] = useState(null);
+      const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+      const [icsModalTask, setIcsModalTask] = useState(null); // Single task ICS reminder config modal
+
+      // Toast Notification
+      const [toast, setToast] = useState(null);
+
+      const showToast = (message, type = 'info', duration = 4000) => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), duration);
+      };
+
+      // Sync tasks to LocalStorage
+      useEffect(() => {
+        localStorage.setItem('viet_task_manager_tasks_v2', JSON.stringify(tasks));
+      }, [tasks]);
+
+      // Sync Theme to HTML class
+      useEffect(() => {
+        if (darkMode) {
+          document.documentElement.classList.add('dark');
+          localStorage.setItem('viet_task_manager_theme', 'dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+          localStorage.setItem('viet_task_manager_theme', 'light');
+        }
+      }, [darkMode]);
+
+      // Task Actions
+      const handleSaveTask = (taskData) => {
+        if (editingTask) {
+          setTasks(prev => prev.map(t => t.id === editingTask.id ? { ...t, ...taskData } : t));
+          showToast('Đã cập nhật công việc thành công!', 'success');
+        } else {
+          const newTask = {
+            ...taskData,
+            id: Date.now().toString(),
+            createdAt: new Date().toISOString(),
+            status: taskData.status || 'todo',
+            subtasks: taskData.subtasks || []
+          };
+          setTasks(prev => [newTask, ...prev]);
+          showToast('Đã tạo công việc mới!', 'success');
+        }
+        setIsModalOpen(false);
+        setEditingTask(null);
+      };
+
+      const handleToggleTaskStatus = (id) => {
+        setTasks(prev => prev.map(t => {
+          if (t.id === id) {
+            const nextStatus = t.status === 'completed' ? 'todo' : 'completed';
+            return { ...t, status: nextStatus };
+          }
+          return t;
+        }));
+      };
+
+      const handleUpdateTaskStatus = (id, newStatus) => {
+        setTasks(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
+        showToast(`Đã chuyển trạng thái sang "${STATUSES[newStatus].name}"`, 'info');
+      };
+
+      const handleDeleteTask = (id) => {
+        setTasks(prev => prev.filter(t => t.id !== id));
+        setDeleteModalId(null);
+        showToast('Đã xóa công việc.', 'warning');
+      };
+
+      const handleToggleSubtask = (taskId, subtaskId) => {
+        setTasks(prev => prev.map(t => {
+          if (t.id === taskId) {
+            const updatedSubtasks = (t.subtasks || []).map(s => 
+              s.id === subtaskId ? { ...s, completed: !s.completed } : s
+            );
+            return { ...t, subtasks: updatedSubtasks };
+          }
+          return t;
+        }));
+      };
+
+      // --- EXPORT TO ICS CALENDAR FUNCTIONS ---
+      const handleExportSingleICS = (task, reminderMinutes = 30) => {
+        const icsData = buildSingleEventICS(task, reminderMinutes);
+        const cleanTitle = (task.title || 'cong_viec').replace(/[^a-zA-Z0-9_ -]/g, '').replace(/\s+/g, '_');
+        triggerICSDownload(`TaskFlow_${cleanTitle}.ics`, icsData);
+        showToast('Đã tải tệp .ics! Hãy chạm vào tệp vừa tải để lưu vào Lịch điện thoại (iPhone/Android).', 'success', 6000);
+      };
+
+      const handleExportAllIncompleteICS = () => {
+        const incompleteTasks = tasks.filter(t => t.status !== 'completed');
+        if (incompleteTasks.length === 0) {
+          showToast('Không có công việc chưa hoàn thành nào để xuất lịch!', 'warning');
+          return;
+        }
+        const batchICS = buildBatchEventsICS(incompleteTasks, 30);
+        triggerICSDownload(`TaskFlow_TatCaCongViec_${getTodayISO()}.ics`, batchICS);
+        showToast(`Đã xuất ${incompleteTasks.length} công việc sang tệp .ics! Mở tệp để đồng bộ điện thoại.`, 'success', 6000);
+      };
+
+      // Reset Data to sample
+      const handleResetData = () => {
+        setTasks(INITIAL_TASKS);
+        showToast('Đã khôi phục dữ liệu mẫu ban đầu!', 'info');
+      };
+
+      // Export JSON
+      const handleExportJSON = () => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(tasks, null, 2));
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", `taskflow_backup_${getTodayISO()}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+        showToast('Đã tải xuống tệp dữ liệu dự phòng!', 'success');
+      };
+
+      // Import JSON
+      const handleImportJSON = (e) => {
+        const fileReader = new FileReader();
+        if (e.target.files && e.target.files[0]) {
+          fileReader.readAsText(e.target.files[0], "UTF-8");
+          fileReader.onload = (event) => {
+            try {
+              const parsed = JSON.parse(event.target.result);
+              if (Array.isArray(parsed)) {
+                setTasks(parsed);
+                showToast('Đã nhập dữ liệu công việc thành công!', 'success');
+              } else {
+                showToast('Định dạng tệp không hợp lệ!', 'error');
+              }
+            } catch (err) {
+              showToast('Lỗi khi đọc tệp dữ liệu!', 'error');
+            }
+          };
+        }
+      };
+
+      // Filtered Tasks logic
+      const filteredTasks = useMemo(() => {
+        const todayStr = getTodayISO();
+
+        return tasks.filter(task => {
+          // Keyword search
+          if (searchQuery.trim() !== '') {
+            const query = searchQuery.toLowerCase();
+            const matchTitle = task.title.toLowerCase().includes(query);
+            const matchDesc = (task.description || '').toLowerCase().includes(query);
+            if (!matchTitle && !matchDesc) return false;
+          }
+
+          // Category filter
+          if (filterCategory !== 'all' && task.category !== filterCategory) return false;
+
+          // Priority filter
+          if (filterPriority !== 'all' && task.priority !== filterPriority) return false;
+
+          // Time filter
+          const taskDateOnly = task.deadline ? task.deadline.split('T')[0] : '';
+
+          if (filterTime === 'today') {
+            if (taskDateOnly !== todayStr) return false;
+          } else if (filterTime === 'upcoming') {
+            if (!taskDateOnly || taskDateOnly <= todayStr) return false;
+          } else if (filterTime === 'overdue') {
+            if (!taskDateOnly || taskDateOnly >= todayStr || task.status === 'completed') return false;
+          }
+
+          return true;
+        });
+      }, [tasks, searchQuery, filterCategory, filterPriority, filterTime]);
+
+      // Computed Stats for Dashboard
+      const stats = useMemo(() => {
+        const total = tasks.length;
+        const completed = tasks.filter(t => t.status === 'completed').length;
+        const inProgress = tasks.filter(t => t.status === 'in_progress').length;
+        const todo = tasks.filter(t => t.status === 'todo').length;
+        const todayStr = getTodayISO();
+        
+        const overdue = tasks.filter(t => {
+          const taskDateOnly = t.deadline ? t.deadline.split('T')[0] : '';
+          return taskDateOnly && taskDateOnly < todayStr && t.status !== 'completed';
+        }).length;
+
+        const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+        return { total, completed, inProgress, todo, overdue, percent };
+      }, [tasks]);
+
+      return (
+        <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-900">
+          
+          {/* TOAST NOTIFICATION */}
+          {toast && (
+            <div className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl text-white font-medium text-sm transition-all duration-300 transform translate-y-0 max-w-md ${
+              toast.type === 'success' ? 'bg-emerald-600' :
+              toast.type === 'warning' ? 'bg-amber-600' :
+              toast.type === 'error' ? 'bg-red-600' : 'bg-blue-600'
+            }`}>
+              <i className={`fas ${
+                toast.type === 'success' ? 'fa-circle-check' :
+                toast.type === 'warning' ? 'fa-triangle-exclamation' :
+                toast.type === 'error' ? 'fa-circle-xmark' : 'fa-circle-info'
+              } text-base`}></i>
+              <span className="leading-snug">{toast.message}</span>
+            </div>
+          )}
+
+          {/* BACKDROP FOR MOBILE SIDEBAR */}
+          {isMobileSidebarOpen && (
+            <div 
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 lg:hidden"
+              onClick={() => setIsMobileSidebarOpen(false)}
+            ></div>
+          )}
+
+          {/* SIDEBAR */}
+          <aside className={`fixed lg:static inset-y-0 left-0 z-40 w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700/60 flex flex-col justify-between transition-transform duration-300 ${
+            isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          }`}>
+            <div>
+              {/* Logo Header */}
+              <div className="p-5 flex items-center justify-between border-b border-slate-100 dark:border-slate-700/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+                    <i className="fas fa-calendar-check text-lg"></i>
+                  </div>
+                  <div>
+                    <h1 className="font-bold text-slate-800 dark:text-white leading-none text-lg">TaskFlow</h1>
+                    <span className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold">Đồng bộ Lịch điện thoại</span>
+                  </div>
+                </div>
+                <button 
+                  className="lg:hidden text-slate-400 hover:text-slate-600"
+                  onClick={() => setIsMobileSidebarOpen(false)}
+                >
+                  <i className="fas fa-xmark text-lg"></i>
+                </button>
+              </div>
+
+              {/* Navigation Links */}
+              <div className="p-4 space-y-1">
+                <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Điều hướng</p>
+                <NavItem 
+                  icon="fa-chart-pie" 
+                  label="Tổng quan" 
+                  active={activeView === 'dashboard'} 
+                  onClick={() => { setActiveView('dashboard'); setIsMobileSidebarOpen(false); }} 
+                />
+                <NavItem 
+                  icon="fa-list-check" 
+                  label="Danh sách công việc" 
+                  active={activeView === 'list'} 
+                  onClick={() => { setActiveView('list'); setIsMobileSidebarOpen(false); }} 
+                  badge={stats.todo + stats.inProgress}
+                />
+                <NavItem 
+                  icon="fa-border-all" 
+                  label="Bảng Kanban" 
+                  active={activeView === 'kanban'} 
+                  onClick={() => { setActiveView('kanban'); setIsMobileSidebarOpen(false); }} 
+                />
+                <NavItem 
+                  icon="fa-clock" 
+                  label="Đồng hồ Pomodoro" 
+                  active={activeView === 'pomodoro'} 
+                  onClick={() => { setActiveView('pomodoro'); setIsMobileSidebarOpen(false); }} 
+                />
+              </div>
+
+              {/* Batch ICS Export Action */}
+              <div className="px-4 py-2">
+                <button
+                  onClick={handleExportAllIncompleteICS}
+                  className="w-full py-2.5 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm"
+                  title="Xuất tất cả việc chưa xong ra tệp .ics để thêm vào Lịch điện thoại"
+                >
+                  <i className="fas fa-calendar-plus text-sm"></i>
+                  <span>Xuất tất cả việc (.ics)</span>
+                </button>
+              </div>
+
+              {/* Categories Quick Filter */}
+              <div className="p-4 border-t border-slate-100 dark:border-slate-700/50 space-y-1">
+                <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Danh mục</p>
+                <button
+                  onClick={() => setFilterCategory('all')}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
+                    filterCategory === 'all' ? 'bg-slate-100 dark:bg-slate-700 text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/40'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <i className="fas fa-border-all text-xs opacity-70"></i> Tất cả danh mục
+                  </span>
+                  <span className="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">{tasks.length}</span>
+                </button>
+                {Object.entries(CATEGORIES).map(([key, cat]) => {
+                  const count = tasks.filter(t => t.category === key).length;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => { setFilterCategory(key); if (activeView === 'dashboard') setActiveView('list'); }}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
+                        filterCategory === key ? 'bg-slate-100 dark:bg-slate-700 text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/40'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <i className={`fas ${cat.icon} text-xs opacity-70`}></i> {cat.name}
+                      </span>
+                      <span className="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Sidebar Bottom Options */}
+            <div className="p-4 border-t border-slate-100 dark:border-slate-700/50 space-y-2">
+              <div className="flex items-center justify-between px-2 py-1">
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Giao diện</span>
+                <button
+                  onClick={() => setDarkMode(!darkMode)}
+                  className="w-12 h-6 rounded-full bg-slate-200 dark:bg-slate-700 p-1 flex items-center transition-colors relative"
+                  title="Chuyển đổi giao diện Sáng / Tối"
+                >
+                  <div className={`w-4 h-4 rounded-full bg-white dark:bg-amber-400 shadow-sm flex items-center justify-center transition-transform ${darkMode ? 'translate-x-6' : 'translate-x-0'}`}>
+                    <i className={`fas ${darkMode ? 'fa-moon text-slate-900 text-[10px]' : 'fa-sun text-amber-500 text-[10px]'}`}></i>
+                  </div>
+                </button>
+              </div>
+
+              <div className="pt-2 flex items-center gap-2">
+                <button
+                  onClick={handleExportJSON}
+                  className="flex-1 px-2 py-1.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs rounded-lg text-slate-600 dark:text-slate-300 font-medium transition-colors flex items-center justify-center gap-1.5"
+                  title="Xuất tệp JSON dự phòng"
+                >
+                  <i className="fas fa-download"></i> Xuất JSON
+                </button>
+                <label className="flex-1 px-2 py-1.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs rounded-lg text-slate-600 dark:text-slate-300 font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
+                  <i className="fas fa-upload"></i> Nhập JSON
+                  <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" />
+                </label>
+              </div>
+
+              <button
+                onClick={handleResetData}
+                className="w-full text-center text-xs text-slate-400 hover:text-red-500 py-1 transition-colors"
+              >
+                <i className="fas fa-rotate-left mr-1"></i> Khôi phục dữ liệu mẫu
+              </button>
+            </div>
+          </aside>
+
+          {/* MAIN CONTENT CONTAINER */}
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            
+            {/* TOP HEADER BAR */}
+            <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700/60 px-4 lg:px-8 py-3.5 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setIsMobileSidebarOpen(true)}
+                  className="lg:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  <i className="fas fa-bars text-lg"></i>
+                </button>
+                
+                {/* Search Bar */}
+                <div className="relative w-48 sm:w-72 md:w-96">
+                  <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                  <input
+                    type="text"
+                    placeholder="Tìm kiếm công việc..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 bg-slate-100 dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-blue-500 transition-all"
+                  />
+                  {searchQuery && (
+                    <button 
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                    >
+                      <i className="fas fa-xmark"></i>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Header Right Actions */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleExportAllIncompleteICS}
+                  className="hidden md:flex bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl font-medium text-xs shadow-md shadow-emerald-500/20 items-center gap-2 transition-all hover:scale-105 active:scale-95"
+                  title="Xuất file .ics tất cả việc chưa xong vào Lịch điện thoại"
+                >
+                  <i className="fas fa-calendar-plus text-sm"></i>
+                  <span>Lưu Lịch ĐT (.ics)</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingTask(null);
+                    setIsModalOpen(true);
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-medium text-sm shadow-md shadow-blue-500/20 flex items-center gap-2 transition-all hover:scale-105 active:scale-95"
+                >
+                  <i className="fas fa-plus text-xs"></i>
+                  <span className="hidden sm:inline">Công việc mới</span>
+                </button>
+              </div>
+            </header>
+
+            {/* MAIN VIEW CONTENT AREA */}
+            <main className="flex-1 overflow-y-auto p-4 lg:p-8">
+              <div className="max-w-7xl mx-auto space-y-6">
+
+                {/* VIEW 1: DASHBOARD */}
+                {activeView === 'dashboard' && (
+                  <DashboardView 
+                    stats={stats}
+                    tasks={tasks}
+                    onOpenNewTask={() => { setEditingTask(null); setIsModalOpen(true); }}
+                    onSelectCategory={(cat) => { setFilterCategory(cat); setActiveView('list'); }}
+                    onToggleTask={handleToggleTaskStatus}
+                    onEditTask={(task) => { setEditingTask(task); setIsModalOpen(true); }}
+                    onDeleteTask={(id) => setDeleteModalId(id)}
+                    onOpenICSModal={(task) => setIcsModalTask(task)}
+                    setActiveView={setActiveView}
+                  />
+                )}
+
+                {/* VIEW 2: LIST VIEW */}
+                {activeView === 'list' && (
+                  <ListView 
+                    tasks={filteredTasks}
+                    filterCategory={filterCategory}
+                    setFilterCategory={setFilterCategory}
+                    filterPriority={filterPriority}
+                    setFilterPriority={setFilterPriority}
+                    filterTime={filterTime}
+                    setFilterTime={setFilterTime}
+                    onToggleTask={handleToggleTaskStatus}
+                    onEditTask={(task) => { setEditingTask(task); setIsModalOpen(true); }}
+                    onDeleteTask={(id) => setDeleteModalId(id)}
+                    onToggleSubtask={handleToggleSubtask}
+                    onOpenICSModal={(task) => setIcsModalTask(task)}
+                  />
+                )}
+
+                {/* VIEW 3: KANBAN VIEW */}
+                {activeView === 'kanban' && (
+                  <KanbanView 
+                    tasks={filteredTasks}
+                    onUpdateStatus={handleUpdateTaskStatus}
+                    onEditTask={(task) => { setEditingTask(task); setIsModalOpen(true); }}
+                    onDeleteTask={(id) => setDeleteModalId(id)}
+                    onOpenICSModal={(task) => setIcsModalTask(task)}
+                  />
+                )}
+
+                {/* VIEW 4: POMODORO TIMER */}
+                {activeView === 'pomodoro' && (
+                  <PomodoroView tasks={tasks} />
+                )}
+
+              </div>
+            </main>
+          </div>
+
+          {/* TASK CREATE / EDIT MODAL */}
+          {isModalOpen && (
+            <TaskFormModal 
+              initialData={editingTask}
+              onClose={() => { setIsModalOpen(false); setEditingTask(null); }}
+              onSave={handleSaveTask}
+              onExportICS={handleExportSingleICS}
+            />
+          )}
+
+          {/* SINGLE TASK ICS REMINDER MODAL */}
+          {icsModalTask && (
+            <ICSReminderModal
+              task={icsModalTask}
+              onClose={() => setIcsModalTask(null)}
+              onConfirm={(reminderMins) => {
+                handleExportSingleICS(icsModalTask, reminderMins);
+                setIcsModalTask(null);
+              }}
+            />
+          )}
+
+          {/* DELETE CONFIRMATION MODAL */}
+          {deleteModalId && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+              <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-700">
+                <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 flex items-center justify-center text-xl mb-4 mx-auto">
+                  <i className="fas fa-trash-can"></i>
+                </div>
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white text-center mb-2">Xác nhận xóa công việc?</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 text-center mb-6">
+                  Hành động này không thể hoàn tác. Công việc này sẽ bị xóa vĩnh viễn khỏi danh sách của bạn.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setDeleteModalId(null)}
+                    className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-medium text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    onClick={() => handleDeleteTask(deleteModalId)}
+                    className="flex-1 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium text-sm transition-colors shadow-md shadow-red-500/20"
+                  >
+                    Xóa ngay
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    // --- SIDEBAR NAV ITEM COMPONENT ---
+    function NavItem({ icon, label, active, onClick, badge }) {
+      return (
+        <button
+          onClick={onClick}
+          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-medium text-sm transition-all ${
+            active 
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' 
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/60'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <i className={`fas ${icon} text-base w-5 text-center`}></i>
+            <span>{label}</span>
+          </div>
+          {badge > 0 && (
+            <span className={`px-2 py-0.5 rounded-full text-xs ${
+              active ? 'bg-blue-700 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+            }`}>
+              {badge}
+            </span>
+          )}
+        </button>
+      );
+    }
+
+    // --- DASHBOARD VIEW COMPONENT ---
+    function DashboardView({ stats, tasks, onOpenNewTask, onSelectCategory, onToggleTask, onEditTask, onDeleteTask, onOpenICSModal, setActiveView }) {
+      const todayStr = getTodayISO();
+      
+      const todayTasks = useMemo(() => {
+        return tasks.filter(t => {
+          const taskDateOnly = t.deadline ? t.deadline.split('T')[0] : '';
+          return taskDateOnly === todayStr || (taskDateOnly && taskDateOnly < todayStr && t.status !== 'completed');
+        });
+      }, [tasks, todayStr]);
+
+      return (
+        <div className="space-y-6">
+          
+          {/* Welcome Banner */}
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 md:p-8 text-white shadow-xl">
+            <div className="relative z-10 max-w-2xl">
+              <span className="inline-block px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-semibold uppercase tracking-wider mb-3">
+                {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              </span>
+              <h2 className="text-2xl md:text-3xl font-bold mb-2">Xin chào! Hôm nay bạn thế nào? 👋</h2>
+              <p className="text-blue-100 text-sm md:text-base mb-6">
+                Bạn đã hoàn thành <span className="font-bold underline">{stats.completed}</span> trong tổng số <span className="font-bold">{stats.total}</span> công việc. Bạn có thể xuất tệp <span className="font-bold underline">.ics</span> để điện thoại nhắc báo thức tự động!
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={onOpenNewTask}
+                  className="bg-white text-blue-600 hover:bg-blue-50 px-5 py-2.5 rounded-xl font-semibold text-sm shadow-lg transition-transform hover:scale-105 active:scale-95 flex items-center gap-2"
+                >
+                  <i className="fas fa-plus text-xs"></i> Thêm công việc mới
+                </button>
+              </div>
+            </div>
+            <i className="fas fa-calendar-check absolute -right-4 -bottom-6 text-9xl text-white/10 pointer-events-none transform -rotate-12"></i>
+          </div>
+
+          {/* STATS CARDS GRID */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <StatCard 
+              icon="fa-list-check" 
+              color="bg-blue-500" 
+              title="Tổng công việc" 
+              value={stats.total} 
+              subText="Tất cả các mục" 
+            />
+            <StatCard 
+              icon="fa-spinner" 
+              color="bg-amber-500" 
+              title="Đang thực hiện" 
+              value={stats.inProgress} 
+              subText="Cần xử lý tiếp" 
+            />
+            <StatCard 
+              icon="fa-circle-check" 
+              color="bg-emerald-500" 
+              title="Đã hoàn thành" 
+              value={stats.completed} 
+              subText={`${stats.percent}% tỷ lệ đạt`} 
+            />
+            <StatCard 
+              icon="fa-triangle-exclamation" 
+              color="bg-red-500" 
+              title="Quá hạn" 
+              value={stats.overdue} 
+              subText="Cần ưu tiên gấp" 
+              highlight={stats.overdue > 0}
+            />
+          </div>
+
+          {/* SECOND ROW: PROGRESS & CATEGORY BREAKDOWN */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Progress Card */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700/60 shadow-sm flex flex-col justify-between">
+              <h3 className="font-bold text-slate-800 dark:text-white text-base mb-4 flex items-center justify-between">
+                <span>Tiến độ hoàn thành</span>
+                <i className="fas fa-chart-line text-blue-500"></i>
+              </h3>
+
+              <div className="flex flex-col items-center justify-center my-4">
+                <div className="relative w-36 h-36 flex items-center justify-center">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                    <path
+                      className="text-slate-100 dark:text-slate-700"
+                      strokeWidth="3.8"
+                      stroke="currentColor"
+                      fill="none"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                    <path
+                      className="text-blue-600 transition-all duration-1000 ease-out"
+                      strokeDasharray={`${stats.percent}, 100`}
+                      strokeWidth="3.8"
+                      strokeLinecap="round"
+                      stroke="currentColor"
+                      fill="none"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                  </svg>
+                  <div className="absolute text-center">
+                    <span className="text-3xl font-extrabold text-slate-800 dark:text-white">{stats.percent}%</span>
+                    <span className="block text-xs text-slate-400 font-medium">Hoàn tất</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-700/50">
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>Cần làm ({stats.todo})</span>
+                  <span>Đang làm ({stats.inProgress})</span>
+                  <span>Xong ({stats.completed})</span>
+                </div>
+                <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2 flex overflow-hidden">
+                  <div style={{ width: `${stats.total ? (stats.todo/stats.total)*100 : 0}%` }} className="bg-slate-400"></div>
+                  <div style={{ width: `${stats.total ? (stats.inProgress/stats.total)*100 : 0}%` }} className="bg-amber-500"></div>
+                  <div style={{ width: `${stats.total ? (stats.completed/stats.total)*100 : 0}%` }} className="bg-emerald-500"></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Category Quick Selector */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700/60 shadow-sm lg:col-span-2">
+              <h3 className="font-bold text-slate-800 dark:text-white text-base mb-4 flex items-center justify-between">
+                <span>Phân loại theo danh mục</span>
+                <span className="text-xs text-slate-400 font-normal">Bấm để xem chi tiết</span>
+              </h3>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {Object.entries(CATEGORIES).map(([key, cat]) => {
+                  const categoryTasks = tasks.filter(t => t.category === key);
+                  const count = categoryTasks.length;
+                  const doneCount = categoryTasks.filter(t => t.status === 'completed').length;
+                  const catPercent = count > 0 ? Math.round((doneCount / count) * 100) : 0;
+
+                  return (
+                    <div 
+                      key={key}
+                      onClick={() => onSelectCategory(key)}
+                      className="p-4 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 hover:bg-slate-100 dark:hover:bg-slate-700/50 cursor-pointer transition-all hover:-translate-y-1"
+                    >
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-base mb-3 ${cat.color}`}>
+                        <i className={`fas ${cat.icon}`}></i>
+                      </div>
+                      <h4 className="font-semibold text-slate-800 dark:text-white text-sm mb-1">{cat.name}</h4>
+                      <p className="text-xs text-slate-500 mb-2">{count} công việc</p>
+                      <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                        <div style={{ width: `${catPercent}%` }} className="bg-blue-600 h-full rounded-full"></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+          </div>
+
+          {/* TODAY / URGENT TASKS LIST */}
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700/60 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-bold text-slate-800 dark:text-white text-base">Công việc cần chú ý hôm nay</h3>
+                <p className="text-xs text-slate-400">Các nhiệm vụ có lịch hôm nay hoặc đã quá hạn</p>
+              </div>
+              <button 
+                onClick={() => setActiveView('list')}
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
+              >
+                Xem tất cả ({tasks.length}) <i className="fas fa-arrow-right ml-1"></i>
+              </button>
+            </div>
+
+            {todayTasks.length === 0 ? (
+              <div className="py-8 text-center text-slate-400 dark:text-slate-500 space-y-2">
+                <i className="fas fa-mug-hot text-3xl text-emerald-500/60"></i>
+                <p className="text-sm font-medium">Không có công việc quá hạn hoặc cần hoàn thành hôm nay!</p>
+                <p className="text-xs">Bạn đã xử lý hết các mục quan trọng.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {todayTasks.map(task => (
+                  <TaskRowItem 
+                    key={task.id} 
+                    task={task} 
+                    onToggle={onToggleTask}
+                    onEdit={onEditTask}
+                    onDelete={onDeleteTask}
+                    onOpenICSModal={onOpenICSModal}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+        </div>
+      );
+    }
+
+    // --- STAT CARD COMPONENT ---
+    function StatCard({ icon, color, title, value, subText, highlight }) {
+      return (
+        <div className={`bg-white dark:bg-slate-800 rounded-2xl p-5 border shadow-sm transition-all ${
+          highlight ? 'border-red-300 dark:border-red-900/60 bg-red-50/30 dark:bg-red-950/10' : 'border-slate-100 dark:border-slate-700/60'
+        }`}>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{title}</span>
+            <div className={`w-9 h-9 rounded-xl ${color} text-white flex items-center justify-center text-sm shadow-md`}>
+              <i className={`fas ${icon}`}></i>
+            </div>
+          </div>
+          <div className="text-2xl md:text-3xl font-extrabold text-slate-800 dark:text-white mb-1">{value}</div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">{subText}</div>
+        </div>
+      );
+    }
+
+    // --- LIST VIEW COMPONENT ---
+    function ListView({ tasks, filterCategory, setFilterCategory, filterPriority, setFilterPriority, filterTime, setFilterTime, onToggleTask, onEditTask, onDeleteTask, onToggleSubtask, onOpenICSModal }) {
+      return (
+        <div className="space-y-4">
+          
+          {/* FILTER TOOLBAR */}
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60 shadow-sm flex flex-wrap items-center justify-between gap-4">
+            
+            {/* Time Filter Pills */}
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl text-xs font-medium">
+              <button
+                onClick={() => setFilterTime('all')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${filterTime === 'all' ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm font-semibold' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
+              >
+                Tất cả
+              </button>
+              <button
+                onClick={() => setFilterTime('today')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${filterTime === 'today' ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm font-semibold' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
+              >
+                Hôm nay
+              </button>
+              <button
+                onClick={() => setFilterTime('upcoming')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${filterTime === 'upcoming' ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm font-semibold' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
+              >
+                Sắp tới
+              </button>
+              <button
+                onClick={() => setFilterTime('overdue')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${filterTime === 'overdue' ? 'bg-red-500 text-white shadow-sm font-semibold' : 'text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'}`}
+              >
+                Quá hạn
+              </button>
+            </div>
+
+            {/* Category & Priority Selectors */}
+            <div className="flex items-center gap-3">
+              <select
+                value={filterPriority}
+                onChange={(e) => setFilterPriority(e.target.value)}
+                className="bg-slate-100 dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:border-blue-500"
+              >
+                <option value="all">Mức độ ưu tiên: Tất cả</option>
+                <option value="high">Ưu tiên: Cao</option>
+                <option value="medium">Ưu tiên: Trung bình</option>
+                <option value="low">Ưu tiên: Thấp</option>
+              </select>
+
+              {(filterCategory !== 'all' || filterPriority !== 'all' || filterTime !== 'all') && (
+                <button
+                  onClick={() => { setFilterCategory('all'); setFilterPriority('all'); setFilterTime('all'); }}
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                >
+                  Xóa bộ lọc
+                </button>
+              )}
+            </div>
+
+          </div>
+
+          {/* TASK ITEMS LIST */}
+          {tasks.length === 0 ? (
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-12 text-center border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-3">
+              <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-400 flex items-center justify-center text-2xl mx-auto">
+                <i className="fas fa-clipboard-list"></i>
+              </div>
+              <h4 className="font-bold text-slate-700 dark:text-slate-200">Không tìm thấy công việc phù hợp</h4>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">Thử thay đổi bộ lọc tìm kiếm hoặc tạo công việc mới để bắt đầu theo dõi.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {tasks.map(task => (
+                <TaskRowItem 
+                  key={task.id} 
+                  task={task} 
+                  onToggle={onToggleTask}
+                  onEdit={onEditTask}
+                  onDelete={onDeleteTask}
+                  onToggleSubtask={onToggleSubtask}
+                  onOpenICSModal={onOpenICSModal}
+                  showSubtasks={true}
+                />
+              ))}
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    // --- TASK ROW ITEM COMPONENT ---
+    function TaskRowItem({ task, onToggle, onEdit, onDelete, onToggleSubtask, onOpenICSModal, showSubtasks }) {
+      const [expanded, setExpanded] = useState(false);
+      const isCompleted = task.status === 'completed';
+      const todayStr = getTodayISO();
+      
+      const taskDateOnly = task.deadline ? task.deadline.split('T')[0] : '';
+      const isOverdue = taskDateOnly && taskDateOnly < todayStr && !isCompleted;
+      const category = CATEGORIES[task.category] || CATEGORIES.other;
+      const priority = PRIORITIES[task.priority] || PRIORITIES.medium;
+
+      const completedSubtasks = (task.subtasks || []).filter(s => s.completed).length;
+      const totalSubtasks = (task.subtasks || []).length;
+
+      return (
+        <div className={`bg-white dark:bg-slate-800 rounded-2xl border transition-all duration-200 overflow-hidden shadow-sm hover:shadow-md ${
+          isOverdue 
+            ? 'border-red-300 dark:border-red-900/60 bg-red-50/20 dark:bg-red-950/10' 
+            : isCompleted 
+            ? 'border-slate-200 dark:border-slate-700/40 opacity-75' 
+            : 'border-slate-100 dark:border-slate-700/60'
+        }`}>
+          <div className="p-4 flex items-center justify-between gap-4">
+            
+            {/* Checkbox & Title Info */}
+            <div className="flex items-start gap-3.5 min-w-0 flex-1">
+              <button
+                onClick={() => onToggle(task.id)}
+                className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center transition-colors flex-shrink-0 ${
+                  isCompleted 
+                    ? 'bg-emerald-500 border-emerald-500 text-white' 
+                    : 'border-slate-300 dark:border-slate-600 hover:border-blue-500'
+                }`}
+              >
+                {isCompleted && <i className="fas fa-check text-xs"></i>}
+              </button>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <h4 className={`font-semibold text-sm truncate ${
+                    isCompleted ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-white'
+                  }`}>
+                    {task.title}
+                  </h4>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  {/* Category Pill */}
+                  <span className={`px-2 py-0.5 rounded-md font-medium text-[11px] border ${category.color}`}>
+                    <i className={`fas ${category.icon} mr-1`}></i>
+                    {category.name}
+                  </span>
+
+                  {/* Priority Badge */}
+                  <span className={`px-2 py-0.5 rounded-md font-medium text-[11px] ${priority.badge}`}>
+                    {priority.name}
+                  </span>
+
+                  {/* Deadline Indicator */}
+                  {task.deadline && (
+                    <span className={`flex items-center gap-1 font-medium ${
+                      isOverdue ? 'text-red-600 dark:text-red-400 font-bold' : 'text-slate-500'
+                    }`}>
+                      <i className={`fas ${isOverdue ? 'fa-clock text-red-500' : 'fa-calendar-alt'}`}></i>
+                      {formatDate(task.deadline)} {isOverdue && '(Quá hạn)'}
+                    </span>
+                  )}
+
+                  {/* Subtask Counter */}
+                  {totalSubtasks > 0 && (
+                    <span className="flex items-center gap-1 text-slate-400">
+                      <i className="fas fa-list-check text-xs"></i>
+                      {completedSubtasks}/{totalSubtasks}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-1">
+              {/* ICS Calendar Reminder Export Button */}
+              <button
+                onClick={() => onOpenICSModal(task)}
+                className="p-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
+                title="Tải tệp .ics để đặt báo thức Lịch điện thoại"
+              >
+                <i className="fas fa-calendar-plus text-sm"></i>
+                <span className="hidden sm:inline">Lưu Lịch</span>
+              </button>
+
+              {showSubtasks && (task.description || (task.subtasks && task.subtasks.length > 0)) && (
+                <button
+                  onClick={() => setExpanded(!expanded)}
+                  className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-xs"
+                  title="Xem chi tiết"
+                >
+                  <i className={`fas ${expanded ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
+                </button>
+              )}
+              <button
+                onClick={() => onEdit(task)}
+                className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-xs"
+                title="Chỉnh sửa"
+              >
+                <i className="fas fa-pen"></i>
+              </button>
+              <button
+                onClick={() => onDelete(task.id)}
+                className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-xs"
+                title="Xóa"
+              >
+                <i className="fas fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+
+          {/* EXPANDED DETAILS & SUBTASKS */}
+          {expanded && showSubtasks && (
+            <div className="px-4 pb-4 pt-2 bg-slate-50/50 dark:bg-slate-900/30 border-t border-slate-100 dark:border-slate-700/50 space-y-3">
+              {task.description && (
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed pl-8">
+                  {task.description}
+                </p>
+              )}
+
+              {task.subtasks && task.subtasks.length > 0 && (
+                <div className="pl-8 space-y-1.5">
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Danh sách việc nhỏ</p>
+                  {task.subtasks.map(sub => (
+                    <label key={sub.id} className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={sub.completed}
+                        onChange={() => onToggleSubtask(task.id, sub.id)}
+                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className={sub.completed ? 'line-through text-slate-400' : ''}>
+                        {sub.title}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // --- KANBAN VIEW COMPONENT ---
+    function KanbanView({ tasks, onUpdateStatus, onEditTask, onDeleteTask, onOpenICSModal }) {
+      const columns = [
+        { key: 'todo', title: 'Cần làm', icon: 'fa-circle', color: 'text-slate-400' },
+        { key: 'in_progress', title: 'Đang làm', icon: 'fa-spinner text-amber-500', color: 'text-amber-500' },
+        { key: 'completed', title: 'Hoàn thành', icon: 'fa-circle-check text-emerald-500', color: 'text-emerald-500' }
+      ];
+
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+          {columns.map(col => {
+            const columnTasks = tasks.filter(t => t.status === col.key);
+
+            return (
+              <div key={col.key} className="bg-slate-100/70 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-200/60 dark:border-slate-700/60 flex flex-col min-h-[500px]">
+                {/* Column Header */}
+                <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center gap-2">
+                    <i className={`fas ${col.icon} text-xs`}></i>
+                    <h3 className="font-bold text-slate-800 dark:text-white text-sm">{col.title}</h3>
+                  </div>
+                  <span className="text-xs bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-2.5 py-0.5 rounded-full font-semibold">
+                    {columnTasks.length}
+                  </span>
+                </div>
+
+                {/* Task Cards Stack */}
+                <div className="space-y-3 flex-1 overflow-y-auto">
+                  {columnTasks.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400 text-xs font-medium border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
+                      Chưa có công việc
+                    </div>
+                  ) : (
+                    columnTasks.map(task => (
+                      <KanbanCard 
+                        key={task.id} 
+                        task={task} 
+                        onUpdateStatus={onUpdateStatus}
+                        onEdit={onEditTask}
+                        onDelete={onDeleteTask}
+                        onOpenICSModal={onOpenICSModal}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // --- KANBAN CARD COMPONENT ---
+    function KanbanCard({ task, onUpdateStatus, onEdit, onDelete, onOpenICSModal }) {
+      const category = CATEGORIES[task.category] || CATEGORIES.other;
+      const priority = PRIORITIES[task.priority] || PRIORITIES.medium;
+      const todayStr = getTodayISO();
+      
+      const taskDateOnly = task.deadline ? task.deadline.split('T')[0] : '';
+      const isOverdue = taskDateOnly && taskDateOnly < todayStr && task.status !== 'completed';
+
+      return (
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700/80 shadow-sm hover:shadow-md transition-all space-y-3">
+          
+          {/* Card Top Header */}
+          <div className="flex items-center justify-between">
+            <span className={`px-2 py-0.5 rounded-md font-medium text-[10px] border ${category.color}`}>
+              {category.name}
+            </span>
+            <span className={`px-2 py-0.5 rounded-md font-medium text-[10px] ${priority.badge}`}>
+              {priority.name}
+            </span>
+          </div>
+
+          {/* Title & Description */}
+          <div>
+            <h5 className="font-semibold text-slate-800 dark:text-white text-sm leading-snug mb-1">
+              {task.title}
+            </h5>
+            {task.description && (
+              <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
+                {task.description}
+              </p>
+            )}
+          </div>
+
+          {/* Deadline & Reminder Export Footer */}
+          <div className="flex items-center justify-between text-[11px]">
+            {task.deadline ? (
+              <div className={`font-medium flex items-center gap-1 ${
+                isOverdue ? 'text-red-500 font-bold' : 'text-slate-400'
+              }`}>
+                <i className="fas fa-clock"></i>
+                {formatDate(task.deadline)} {isOverdue && '(Quá hạn)'}
+              </div>
+            ) : <div></div>}
+
+            <button
+              onClick={() => onOpenICSModal(task)}
+              className="text-emerald-600 dark:text-emerald-400 hover:underline font-semibold flex items-center gap-1"
+              title="Xuất file .ics sang Lịch điện thoại"
+            >
+              <i className="fas fa-calendar-plus"></i> Lưu Lịch
+            </button>
+          </div>
+
+          {/* Quick Action Buttons to Move Card */}
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => onEdit(task)}
+                className="p-1.5 text-slate-400 hover:text-blue-500 text-xs rounded hover:bg-slate-100 dark:hover:bg-slate-700"
+                title="Chỉnh sửa"
+              >
+                <i className="fas fa-pen"></i>
+              </button>
+              <button
+                onClick={() => onDelete(task.id)}
+                className="p-1.5 text-slate-400 hover:text-red-500 text-xs rounded hover:bg-slate-100 dark:hover:bg-slate-700"
+                title="Xóa"
+              >
+                <i className="fas fa-trash-can"></i>
+              </button>
+            </div>
+
+            {/* Move status buttons */}
+            <div className="flex items-center gap-1 text-xs">
+              {task.status !== 'todo' && (
+                <button
+                  onClick={() => onUpdateStatus(task.id, task.status === 'completed' ? 'in_progress' : 'todo')}
+                  className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 transition-colors"
+                  title="Chuyển về trước"
+                >
+                  <i className="fas fa-arrow-left"></i>
+                </button>
+              )}
+              {task.status !== 'completed' && (
+                <button
+                  onClick={() => onUpdateStatus(task.id, task.status === 'todo' ? 'in_progress' : 'completed')}
+                  className="px-2 py-1 rounded bg-blue-50 dark:bg-blue-900/40 hover:bg-blue-100 text-blue-600 dark:text-blue-300 font-medium transition-colors"
+                  title="Chuyển sang bước tiếp"
+                >
+                  <i className="fas fa-arrow-right"></i>
+                </button>
+              )}
+            </div>
+          </div>
+
+        </div>
+      );
+    }
+
+    // --- POMODORO TIMER VIEW COMPONENT ---
+    function PomodoroView({ tasks }) {
+      const [mode, setMode] = useState('work'); // 'work' (25m), 'shortBreak' (5m), 'longBreak' (15m)
+      const [timeLeft, setTimeLeft] = useState(25 * 60);
+      const [isRunning, setIsRunning] = useState(false);
+      const [selectedTaskId, setSelectedTaskId] = useState('');
+      const [completedCycles, setCompletedCycles] = useState(0);
+
+      const timerRef = useRef(null);
+
+      const modeTimes = {
+        work: 25 * 60,
+        shortBreak: 5 * 60,
+        longBreak: 15 * 60
+      };
+
+      const handleSwitchMode = (newMode) => {
+        setMode(newMode);
+        setIsRunning(false);
+        setTimeLeft(modeTimes[newMode]);
+      };
+
+      useEffect(() => {
+        if (isRunning) {
+          timerRef.current = setInterval(() => {
+            setTimeLeft(prev => {
+              if (prev <= 1) {
+                clearInterval(timerRef.current);
+                setIsRunning(false);
+                playNotificationSound();
+                if (mode === 'work') {
+                  setCompletedCycles(c => c + 1);
+                }
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+        } else {
+          clearInterval(timerRef.current);
+        }
+
+        return () => clearInterval(timerRef.current);
+      }, [isRunning, mode]);
+
+      const formatTimer = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      };
+
+      return (
+        <div className="max-w-xl mx-auto space-y-6">
+          
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700/60 shadow-xl text-center space-y-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full text-xs font-semibold">
+              <i className="fas fa-stopwatch"></i> Phương pháp Pomodoro
+            </div>
+
+            {/* Mode Selector Tabs */}
+            <div className="flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl text-xs font-semibold max-w-sm mx-auto">
+              <button
+                onClick={() => handleSwitchMode('work')}
+                className={`flex-1 py-2 rounded-xl transition-all ${mode === 'work' ? 'bg-red-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
+              >
+                Làm việc (25m)
+              </button>
+              <button
+                onClick={() => handleSwitchMode('shortBreak')}
+                className={`flex-1 py-2 rounded-xl transition-all ${mode === 'shortBreak' ? 'bg-emerald-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
+              >
+                Nghỉ ngắn (5m)
+              </button>
+              <button
+                onClick={() => handleSwitchMode('longBreak')}
+                className={`flex-1 py-2 rounded-xl transition-all ${mode === 'longBreak' ? 'bg-blue-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
+              >
+                Nghỉ dài (15m)
+              </button>
+            </div>
+
+            {/* Timer Display */}
+            <div className="py-6">
+              <div className="text-7xl md:text-8xl font-black text-slate-800 dark:text-white tracking-tight font-mono">
+                {formatTimer(timeLeft)}
+              </div>
+              <p className="text-xs text-slate-400 mt-2">
+                {mode === 'work' ? 'Tập trung cao độ không xao nhãng' : 'Thư giãn mắt và cơ thể'}
+              </p>
+            </div>
+
+            {/* Controls */}
+            <div className="flex items-center justify-center gap-4">
+              <button
+                onClick={() => setIsRunning(!isRunning)}
+                className={`w-36 py-3.5 rounded-2xl font-bold text-base text-white shadow-lg transition-transform hover:scale-105 active:scale-95 ${
+                  isRunning ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20' : 'bg-red-500 hover:bg-red-600 shadow-red-500/20'
+                }`}
+              >
+                <i className={`fas ${isRunning ? 'fa-pause' : 'fa-play'} mr-2`}></i>
+                {isRunning ? 'Tạm dừng' : 'Bắt đầu'}
+              </button>
+
+              <button
+                onClick={() => { setIsRunning(false); setTimeLeft(modeTimes[mode]); }}
+                className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all"
+                title="Đặt lại đồng hồ"
+              >
+                <i className="fas fa-rotate-right"></i>
+              </button>
+            </div>
+
+            {/* Assigned Task Picker */}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-700/60 text-left">
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">
+                Gắn phiên tập trung này với công việc:
+              </label>
+              <select
+                value={selectedTaskId}
+                onChange={(e) => setSelectedTaskId(e.target.value)}
+                className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:border-red-500"
+              >
+                <option value="">-- Chọn công việc trong danh sách --</option>
+                {tasks.filter(t => t.status !== 'completed').map(t => (
+                  <option key={t.id} value={t.id}>{t.title}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Completed sessions counter */}
+            <div className="flex items-center justify-between text-xs text-slate-400 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl">
+              <span>Chu kỳ Pomodoro đã xong hôm nay:</span>
+              <span className="font-bold text-red-500">{completedCycles} phiên</span>
+            </div>
+
+          </div>
+
+        </div>
+      );
+    }
+
+    // --- ICS REMINDER CONFIG MODAL ---
+    function ICSReminderModal({ task, onClose, onConfirm }) {
+      const [reminderMins, setReminderMins] = useState(task.reminderOffset !== undefined ? task.reminderOffset : 30);
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-700 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-lg font-bold">
+                  <i className="fas fa-calendar-plus"></i>
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 dark:text-white text-base">Tạo tệp Lịch (.ics)</h3>
+                  <p className="text-xs text-slate-400">Đặt giờ báo thức cho điện thoại</p>
+                </div>
+              </div>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+                <i className="fas fa-xmark text-lg"></i>
+              </button>
+            </div>
+
+            <div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mb-3 leading-relaxed">
+                Công việc: <strong className="text-slate-800 dark:text-white">{task.title}</strong>
+              </p>
+
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                Chọn thời gian báo chuông nhắc nhở trước hạn:
+              </label>
+              <div className="space-y-2">
+                {REMINDER_OPTIONS.map(opt => (
+                  <label 
+                    key={opt.value} 
+                    className={`flex items-center justify-between p-3 rounded-xl border text-xs font-medium cursor-pointer transition-all ${
+                      reminderMins === opt.value
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-700 dark:text-emerald-300 font-bold'
+                        : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="reminderChoice"
+                        checked={reminderMins === opt.value}
+                        onChange={() => setReminderMins(opt.value)}
+                        className="text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span>{opt.label}</span>
+                    </div>
+                    <i className="fas fa-bell text-slate-400 text-xs"></i>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-slate-100 dark:bg-slate-900/60 p-3 rounded-xl text-[11px] text-slate-500 dark:text-slate-400 leading-normal flex items-start gap-2">
+              <i className="fas fa-mobile-screen-button text-emerald-500 text-sm mt-0.5"></i>
+              <span>Sau khi tải tệp <strong>.ics</strong>, chạm vào tệp trên điện thoại (iPhone hoặc Android) và chọn <strong>"Thêm vào Lịch"</strong> để đồng bộ báo thức.</span>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={onClose}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-medium text-xs hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={() => onConfirm(reminderMins)}
+                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2"
+              >
+                <i className="fas fa-download"></i> Tải file .ics
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // --- TASK CREATE / EDIT MODAL FORM ---
+    function TaskFormModal({ initialData, onClose, onSave, onExportICS }) {
+      const [title, setTitle] = useState(initialData?.title || '');
+      const [description, setDescription] = useState(initialData?.description || '');
+      
+      // Setup datetime-local format YYYY-MM-DDTHH:mm
+      const getInitialDeadline = () => {
+        if (initialData?.deadline) {
+          if (initialData.deadline.includes('T')) return initialData.deadline;
+          return `${initialData.deadline}T09:00`;
+        }
+        return `${getTodayISO()}T17:00`;
+      };
+
+      const [deadline, setDeadline] = useState(getInitialDeadline());
+      const [reminderOffset, setReminderOffset] = useState(initialData?.reminderOffset !== undefined ? initialData.reminderOffset : 30);
+      const [priority, setPriority] = useState(initialData?.priority || 'medium');
+      const [category, setCategory] = useState(initialData?.category || 'work');
+      const [status, setStatus] = useState(initialData?.status || 'todo');
+      const [subtasks, setSubtasks] = useState(initialData?.subtasks || []);
+      const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!title.trim()) return;
+        onSave({ title, description, deadline, reminderOffset, priority, category, status, subtasks });
+      };
+
+      const handleAddSubtask = () => {
+        if (!newSubtaskTitle.trim()) return;
+        setSubtasks([...subtasks, { id: Date.now().toString(), title: newSubtaskTitle.trim(), completed: false }]);
+        setNewSubtaskTitle('');
+      };
+
+      const handleRemoveSubtask = (subId) => {
+        setSubtasks(subtasks.filter(s => s.id !== subId));
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl border border-slate-100 dark:border-slate-700 relative my-8 animate-fadeIn">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100 dark:border-slate-700/60">
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                <i className="fas fa-pen-to-square text-blue-600"></i>
+                {initialData ? 'Chỉnh sửa công việc' : 'Tạo công việc mới'}
+              </h3>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+                <i className="fas fa-xmark text-lg"></i>
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              
+              {/* Tiêu đề */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Tiêu đề công việc <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ví dụ: Nộp báo cáo tài chính tháng 11..."
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              {/* Mô tả */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Mô tả chi tiết
+                </label>
+                <textarea
+                  rows="3"
+                  placeholder="Ghi chú chi tiết, đường dẫn, thông tin bổ sung..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500"
+                ></textarea>
+              </div>
+
+              {/* Deadline & Reminder Choice */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Ngày & Giờ hết hạn (Deadline)
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Báo trước cho Lịch ĐT
+                  </label>
+                  <select
+                    value={reminderOffset}
+                    onChange={(e) => setReminderOffset(Number(e.target.value))}
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500"
+                  >
+                    {REMINDER_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Status & Priority */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Trạng thái
+                  </label>
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="todo">Cần làm</option>
+                    <option value="in_progress">Đang làm</option>
+                    <option value="completed">Hoàn thành</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Mức độ ưu tiên
+                  </label>
+                  <select
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="high">🔥 Cao</option>
+                    <option value="medium">⚡ Trung bình</option>
+                    <option value="low">🌱 Thấp</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Danh mục
+                  </label>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="work">💼 Công việc</option>
+                    <option value="personal">👤 Cá nhân</option>
+                    <option value="study">🎓 Học tập</option>
+                    <option value="other">📌 Khác</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Subtasks Section */}
+              <div className="pt-2">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Danh sách việc nhỏ (Subtasks)
+                </label>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    placeholder="Thêm mục con..."
+                    value={newSubtaskTitle}
+                    onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                    className="flex-1 px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddSubtask}
+                    className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-xs font-medium rounded-xl"
+                  >
+                    Thêm
+                  </button>
+                </div>
+
+                {subtasks.length > 0 && (
+                  <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
+                    {subtasks.map((st) => (
+                      <div key={st.id} className="flex items-center justify-between text-xs bg-slate-50 dark:bg-slate-900 p-2 rounded-lg">
+                        <span className="truncate">{st.title}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSubtask(st.id)}
+                          className="text-red-500 hover:text-red-700 ml-2"
+                        >
+                          <i className="fas fa-trash-can text-xs"></i>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Form Buttons */}
+              <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-100 dark:border-slate-700/60">
+                {initialData && (
+                  <button
+                    type="button"
+                    onClick={() => onExportICS(initialData, reminderOffset)}
+                    className="py-2.5 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-1.5"
+                    title="Tải tệp .ics vào Lịch"
+                  >
+                    <i className="fas fa-calendar-plus text-sm"></i> Xuất .ics
+                  </button>
+                )}
+
+                <div className="flex items-center gap-3 ml-auto">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-medium text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    className="py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm shadow-md shadow-blue-500/20 transition-all hover:scale-105"
+                  >
+                    {initialData ? 'Cập nhật' : 'Tạo mới'}
+                  </button>
+                </div>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // Render App
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
